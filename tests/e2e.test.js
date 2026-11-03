@@ -643,11 +643,12 @@ function startServer(db, net) {
     const shownHidden = await js(`return [...document.querySelectorAll("[hidden]")].filter((e) => getComputedStyle(e).display !== "none").map((e) => e.id || e.className)`);
     check("what is hidden stays hidden", !shownHidden.length, shownHidden);
     // The test browser may really offer installation, so the starting state is set here.
-    const install = await js(`const b = document.getElementById("install"); b.hidden = true; const before = getComputedStyle(b).display;
+    const install = await js(`const b = document.getElementById("install"); const h = document.getElementById("install-hint"); b.hidden = true; h.hidden = false; const before = getComputedStyle(b).display; const guide = getComputedStyle(h).display;
       window.dispatchEvent(new Event("beforeinstallprompt"));
-      const after = getComputedStyle(b).display; b.hidden = true;
-      return { before, after }`);
+      const after = getComputedStyle(b).display; const guideAfter = getComputedStyle(h).display; b.hidden = true;
+      return { before, after, guide, guideAfter }`);
     check("the install button shows only when the browser offers it", install.before === "none" && install.after !== "none", install);
+    check("the iPhone steps show only without the button", install.guide !== "none" && install.guideAfter === "none", install);
 
     // Navigation and the remaining sections
     console.error(`[${Math.round(process.uptime())}s] Navigation and the remaining sections: ${passed} ok, ${failures.length} failed`);
