@@ -50,6 +50,24 @@ create table if not exists quotes (
   created_at timestamptz not null default now()
 );
 
+alter table quotes add column if not exists nights integer check (nights between 1 and 30);
+
+-- Lodgings found by anyone in the group. The one marked official sets the published figures.
+create table if not exists houses (
+  id uuid primary key default gen_random_uuid(),
+  person text not null references people (id) on delete cascade,
+  dest text not null check (char_length(dest) between 1 and 40),
+  name text not null check (char_length(name) between 1 and 80),
+  zone text not null default '' check (char_length(zone) <= 80),
+  url text not null default '' check (url = '' or (url ~ '^https://' and char_length(url) <= 500)),
+  nights integer not null check (nights between 1 and 30),
+  total numeric not null check (total between 1 and 100000),
+  note text not null default '' check (char_length(note) <= 200),
+  official boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists houses_one_official on houses (dest) where official;
+
 -- Destinations may still change, so rankings are not tied to a fixed list here.
 create table if not exists votes (
   person text primary key references people (id) on delete cascade,
@@ -72,7 +90,8 @@ alter table votes enable row level security;
 alter table proposals enable row level security;
 alter table past_trips enable row level security;
 alter table photos enable row level security;
-revoke all on people, quotes, votes, proposals, past_trips, photos from public, anon, authenticated;
+alter table houses enable row level security;
+revoke all on people, quotes, votes, proposals, past_trips, photos, houses from public, anon, authenticated;
 
 create or replace function hash_code(p_code text) returns text
 language sql immutable set search_path = public, pg_temp as $$
@@ -120,8 +139,12 @@ begin
     'quotes', (select coalesce(json_agg(json_build_object(
       'id', id, 'person', person, 'note', note, 'dest', dest, 'days', days, 'passOption', pass_option,
       'people', q.people, 'cars', cars, 'km', km, 'consumption', consumption, 'fuelPrice', fuel_price, 'tolls', tolls,
-      'flatTotal', flat_total, 'pass', pass, 'foodPerDay', food_per_day, 'extras', extras, 'createdAt', created_at
+      'flatTotal', flat_total, 'pass', pass, 'foodPerDay', food_per_day, 'extras', extras, 'nights', nights, 'createdAt', created_at
     ) order by created_at desc), '[]'::json) from quotes q),
+    'houses', (select coalesce(json_agg(json_build_object(
+      'id', id, 'person', person, 'dest', dest, 'name', name, 'zone', zone, 'url', url, 'nights', nights,
+      'total', total, 'note', note, 'official', official, 'createdAt', created_at
+    ) order by official desc, total / nights, created_at), '[]'::json) from houses),
     'votes', (select coalesce(json_agg(json_build_object(
       'person', person, 'ranking', ranking, 'attending', attending
     ) order by updated_at desc), '[]'::json) from votes),
@@ -138,12 +161,12 @@ declare
   me people := person_from_code(p_code);
   saved uuid;
 begin
-  insert into quotes (person, note, dest, days, pass_option, people, cars, km, consumption, fuel_price, tolls, flat_total, pass, food_per_day, extras)
+  insert into quotes (person, note, dest, days, pass_option, people, cars, km, consumption, fuel_price, tolls, flat_total, pass, food_per_day, extras, nights)
   values (
     me.id, coalesce(p_quote->>'note', ''), p_quote->>'dest', (p_quote->>'days')::integer, coalesce((p_quote->>'passOption')::boolean, false),
     (p_quote->>'people')::integer, (p_quote->>'cars')::integer, (p_quote->>'km')::numeric, (p_quote->>'consumption')::numeric,
     (p_quote->>'fuelPrice')::numeric, (p_quote->>'tolls')::numeric, (p_quote->>'flatTotal')::numeric, (p_quote->>'pass')::numeric,
-    (p_quote->>'foodPerDay')::numeric, (p_quote->>'extras')::numeric
+    (p_quote->>'foodPerDay')::numeric, (p_quote->>'extras')::numeric, (p_quote->>'nights')::integer
   ) returning id into saved;
   return saved;
 end;
@@ -179,6 +202,55 @@ declare
 begin
   insert into proposals (person, body) values (me.id, trim(p_text)) returning id into saved;
   return saved;
+end;
+$$;
+
+create or replace function save_house(p_code text, p_house jsonb) returns uuid
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  me people := person_from_code(p_code);
+  saved uuid;
+begin
+  insert into houses (person, dest, name, zone, url, nights, total, note)
+  values (
+    me.id, p_house->>'dest', trim(p_house->>'name'), trim(coalesce(p_house->>'zone', '')), trim(coalesce(p_house->>'url', '')),
+    (p_house->>'nights')::integer, (p_house->>'total')::numeric, trim(coalesce(p_house->>'note', ''))
+  ) returning id into saved;
+  return saved;
+end;
+$$;
+
+-- The author or the organizer.
+create or replace function delete_house(p_code text, p_id uuid) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  me people := person_from_code(p_code);
+begin
+  delete from houses where id = p_id and (person = me.id or me.organizer);
+  if not found then
+    raise exception 'not_allowed';
+  end if;
+end;
+$$;
+
+-- Marks the lodging official for its destination, or clears the mark if it already is.
+create or replace function set_official_house(p_code text, p_id uuid) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  me people := person_from_code(p_code);
+  chosen houses;
+begin
+  if not me.organizer then
+    raise exception 'not_allowed';
+  end if;
+  select * into chosen from houses where id = p_id;
+  if chosen.id is null then
+    raise exception 'not_found';
+  end if;
+  update houses set official = false where dest = chosen.dest and official;
+  if not chosen.official then
+    update houses set official = true where id = p_id;
+  end if;
 end;
 $$;
 
@@ -270,9 +342,11 @@ $$;
 revoke all on function hash_code(text), person_from_code(text) from public, anon, authenticated;
 revoke all on function login(text), read_all(text), read_photo(text, text), save_quote(text, jsonb), delete_quote(text, uuid),
   save_vote(text, text[], boolean), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
+  save_house(text, jsonb), delete_house(text, uuid), set_official_house(text, uuid),
   set_person(text, text, text, text, integer), set_past_trip(text, integer, text, numeric),
   save_photo(text, text, integer, text, integer, integer, integer, text, text) from public, authenticated;
 grant execute on function login(text), read_all(text), read_photo(text, text), save_quote(text, jsonb), delete_quote(text, uuid),
   save_vote(text, text[], boolean), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
+  save_house(text, jsonb), delete_house(text, uuid), set_official_house(text, uuid),
   set_person(text, text, text, text, integer), set_past_trip(text, integer, text, numeric),
   save_photo(text, text, integer, text, integer, integer, integer, text, text) to anon;

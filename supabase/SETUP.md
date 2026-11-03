@@ -23,11 +23,11 @@ When a change needs the database, do it in this order, so nobody meets an empty 
 
 Each of these should be refused, because nothing is readable without a code:
 
-- `GET /rest/v1/people`: permission denied.
+- `GET /rest/v1/people` and `GET /rest/v1/houses`: permission denied.
 - `POST /rest/v1/rpc/hash_code`: permission denied.
 - `POST /rest/v1/rpc/login` with a wrong code: 400 with message `bad_code`.
 
-Then, from the published site and not from a terminal, so real codes stay out of shell history: stamp a skipass, vote, save and delete a quote, close a proposal.
+Then, from the published site and not from a terminal, so real codes stay out of shell history: stamp a skipass, vote, save and delete a quote, close a proposal, add a lodging. As a friend, check that no star button shows.
 
 ## Pauses
 

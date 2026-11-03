@@ -1,17 +1,28 @@
 (() => {
-  const { TRIP, store, tripCost, defaultFlatTotal, paintPanorama, paintGrain, paintEdge, paintArm, paintSpeckle, paintScene } = globalThis;
+  const { TRIP, store, tripCost, houseTotal, paintPanorama, paintGrain, paintEdge, paintArm, paintSpeckle, paintScene } = globalThis;
   const $ = (selector) => document.querySelector(selector);
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   // Italian skips the thousands dot on four digits unless asked.
   const grouped = (value) => value.toLocaleString("it-IT", { useGrouping: "always" });
   const euro = (value) => `${grouped(Math.round(value))} €`;
   const peopleCount = (count) => `${count} ${count === 1 ? "persona" : "persone"}`;
+  const nightsWord = (n) => `${n} ${n === 1 ? "notte" : "notti"}`;
   const byId = (id) => TRIP.destinations.find((d) => d.id === id);
   const disc = (grade) => `<svg class="disc disc-${grade}" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>`;
+  const COUNT = { 1: "una", 2: "due", 3: "tre", 4: "quattro", 5: "cinque", 6: "sei" };
   const origin = (label, source) => source
     ? `<a class="tag" href="${source.url}" target="_blank" rel="noopener">${label}: ${source.label}</a>`
     : `<span class="tag">${label}</span>`;
 
+  // Lodgings come from the group: only a real https address ever becomes a link.
+  const safeUrl = (text) => {
+    try {
+      const url = new URL(text);
+      return url.protocol === "https:" ? url : null;
+    } catch {
+      return null;
+    }
+  };
   const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
   // Shared rows can name destinations that changed since: keep only those that exist, once each.
   const validRanking = (ranking) => (Array.isArray(ranking) ? [...new Set(ranking)].filter((id) => TRIP.destinations.some((d) => d.id === id)) : []);
@@ -44,6 +55,16 @@
     return costs.length ? [Math.min(...costs), Math.max(...costs)] : null;
   };
 
+  // The starred lodging sets the published figures; without a star, the cheapest per night.
+  const houseOf = (dest) => {
+    const listed = store.listHouses().filter((h) => h.dest === dest.id);
+    return listed.find((h) => h.official) || [...listed].sort((a, b) => a.total / a.nights - b.total / b.nights)[0] || null;
+  };
+  const stayCost = (dest, nights) => {
+    const house = houseOf(dest);
+    return house ? houseTotal(house, nights) : 0;
+  };
+
   // Each section registers here, so fresh data redraws them all.
   const renderers = [];
   const renderShared = () => renderers.forEach((render) => render());
@@ -56,6 +77,7 @@
     }
     $("#votes-note").textContent = online ? "Voti e posti li vediamo tutti e quattro." : "Non riesco ad aggiornare: stai vedendo gli ultimi voti scaricati.";
     $("#quotes-note").textContent = online ? "Li vediamo tutti e quattro." : "Non riesco ad aggiornare: stai vedendo gli ultimi preventivi scaricati.";
+    $("#houses-note").textContent = online ? "Hai trovato una casa? Inseriscila qui: la vediamo tutti e il conto si fa da solo." : "Non riesco ad aggiornare: stai vedendo gli ultimi alloggi e conti scaricati.";
     renderShared();
   };
 
@@ -76,6 +98,7 @@
     { id: "consumption", label: "Litri per 100 km", group: "Viaggio", min: 0, max: 100, step: 0.5 },
     { id: "fuelPrice", label: "Carburante, € al litro", group: "Viaggio", min: 0, max: 100, step: 0.01 },
     { id: "tolls", label: "Pedaggi andata e ritorno, € per auto", group: "Viaggio", min: 0, max: 100000, step: 1, perDest: true },
+    { id: "nights", label: "Notti", group: "Soggiorno", min: 1, max: 30, step: 1, whole: true },
     { id: "flat", label: "Appartamento, € in totale", group: "Soggiorno", min: 0, max: 1000000, step: 10, perDest: true },
     { id: "pass", label: "Skipass, € a testa", group: "Soggiorno", min: 0, max: 100000, step: 1, perDest: true },
     { id: "foodPerDay", label: "Cibo e après-ski, € al giorno a testa", group: "Soggiorno", min: 0, max: 10000, step: 5 },
@@ -83,6 +106,8 @@
   ];
 
   const edits = (dest) => (state.perDest[dest.id] ??= {});
+  // A lodging tried with "Usa nel conto" stands in here until the viewer resets; it keeps following nights.
+  const stayOf = (dest) => store.listHouses().find((h) => h.id === state.perDest[dest.id]?.house && h.dest === dest.id) || houseOf(dest);
   const listPass = (dest, days) => {
     const prices = dest.id === state.dest && state.passOption && dest.passOption ? dest.passOption.prices : dest.pass;
     return prices[days];
@@ -94,48 +119,58 @@
       days,
       km: typed.km ?? dest.trip.km,
       tolls: typed.tolls ?? dest.trip.tolls,
-      flatTotal: typed.flat ?? defaultFlatTotal(dest, days),
+      flatTotal: typed.flat ?? (stayOf(dest) ? houseTotal(stayOf(dest), state.shared.nights) : 0),
       pass: typed[`pass${days}`] ?? listPass(dest, days),
     };
   };
   const fieldValue = (dest, id) => {
     const inputs = inputsOf(dest);
-    return id === "flat" ? inputs.flatTotal : inputs[id];
+    return id === "flat" ? Math.round(inputs.flatTotal * 100) / 100 : inputs[id];
   };
   // The published figures: the hero and the objections state these, whatever the viewer is trying out.
   const defaultsOf = (dest, days) => ({
     ...TRIP.defaults.shared,
     days,
+    nights: days - 1,
     km: dest.trip.km,
     tolls: dest.trip.tolls,
-    flatTotal: defaultFlatTotal(dest, days),
+    flatTotal: stayCost(dest, days - 1),
     pass: dest.pass[days],
   });
   const costOf = (dest, days) => tripCost(defaultsOf(dest, days));
 
   function renderHero() {
     if (me()?.line) $("#personal").textContent = me().line;
+    const { days } = TRIP.defaults;
     const cheapest = TRIP.destinations
-      .map((d) => ({ d, total: costOf(d, 4).total }))
+      .filter(houseOf)
+      .map((d) => ({ d, total: costOf(d, days).total }))
       .sort((a, b) => a.total - b.total)[0];
-    $("#hero-cost").textContent = `Stima da ${euro(cheapest.total)} a testa con 4 giorni ${cheapest.d.at}, ${cheapest.d.flat.total ? "casa da confermare" : "se la casa si affitta a notte"}.`;
-    $("#signs").innerHTML = TRIP.destinations.map((d) => {
-      const [short, long] = [4, 5].map((days) => costOf(d, days).total);
-      return `<a class="sign" href="#${d.id}">${disc(d.grade)}<span class="sign-name">${d.name}</span><span class="sign-data">${d.drive}<br>stima ${grouped(Math.round(short))}-${euro(long)}</span></a>`;
-    }).join("");
+    $("#hero-cost").textContent = cheapest ? `Stima da ${euro(cheapest.total)} a testa ${cheapest.d.at}, alloggio da confermare.` : "";
+    $("#signs").innerHTML = TRIP.destinations.map((d) => `<a class="sign" href="#${d.id}">${disc(d.grade)}<span class="sign-name">${d.name}</span><span class="sign-data">${d.drive}<br>${houseOf(d) ? `stima ${euro(costOf(d, days).total)}` : "casa da scegliere"}</span></a>`).join("");
   }
 
   function renderCostObjection() {
     const { days } = TRIP.defaults;
     const [, high] = budgetBand() || [];
-    const week = TRIP.destinations.map((d) => tripCost({ ...defaultsOf(d, days), flatTotal: d.flat.total ?? d.flat.nightly * 7 }).total);
-    const [cheapest, dearest] = [Math.min(...week), Math.max(...week)];
-    const nightly = TRIP.destinations
-      .filter((d) => d.flat.nightly)
-      .map((d) => ({ name: d.name, caveat: d.flat.nightlyCaveat, total: tripCost({ ...defaultsOf(d, days), flatTotal: d.flat.nightly * days }).total }))
-      .filter(({ total }) => total <= high);
-    const under = nightly.length ? ` Si scende sotto ${euro(high)} solo se la casa si affitta a notte: ${nightly.map(({ name, caveat, total }) => `${name} circa ${euro(total)}, ${caveat}`).join("; ")}.` : "";
-    $("#cost-objection").textContent = `Giusto preoccuparsene. A settimana intera, con ${days} giorni di sci, le tre mete costano tra ${euro(cheapest)} e ${euro(dearest)} a testa${cheapest > high ? ": più del nostro viaggio più caro" : ""}.${under} Qui sopra puoi cambiare ogni voce finché non torna.`;
+    const priced = TRIP.destinations.filter(houseOf).map((d) => ({ name: d.name, total: costOf(d, days).total }));
+    if (!priced.length) {
+      $("#cost-objection").textContent = "Giusto preoccuparsene. Appena inseriamo gli alloggi, qui compare il conto di ogni meta.";
+      return;
+    }
+    const totals = priced.map((p) => p.total);
+    const over = priced.filter((p) => p.total > high).map((p) => p.name);
+    const missing = TRIP.destinations.filter((d) => !houseOf(d)).map((d) => d.name);
+    const scope = missing.length ? `, contando solo le mete con un alloggio: manca ancora per ${missing.join(" e ")}` : "";
+    let verdict = "";
+    if (high !== undefined) {
+      const all = missing.length ? "" : "tutte ";
+      if (priced.length === 1) verdict = over.length ? " Oggi supera il nostro viaggio più caro." : " Oggi sta entro il nostro viaggio più caro.";
+      else if (!over.length) verdict = ` Oggi stanno ${all}entro il nostro viaggio più caro.`;
+      else if (over.length === priced.length) verdict = ` Oggi costano ${all}più del nostro viaggio più caro.`;
+      else verdict = ` Oggi supera il nostro viaggio più caro solo ${over.join(" e ")}.`;
+    }
+    $("#cost-objection").textContent = `Giusto preoccuparsene. Con ${COUNT[days - 1]} notti e ${COUNT[days]} giorni di sci ${priced.length === 1 ? `${priced[0].name} costa ${euro(totals[0])}` : `si va da ${euro(Math.min(...totals))} a ${euro(Math.max(...totals))}`} a testa${scope}.${verdict} Gli alloggi sono da confermare: qui sopra puoi cambiare ogni voce finché non torna.`;
   }
 
   function renderPast() {
@@ -199,24 +234,49 @@
       </article>`).join("");
   }
 
+  const houseLink = (house) => {
+    const url = safeUrl(house?.url);
+    return url ? `<br><a class="tag" href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer">Annuncio: ${escapeHtml(url.hostname)}</a>` : "";
+  };
+  const stayNote = (dest, nights) => {
+    if (state.perDest[dest.id]?.flat !== undefined) return "Importo inserito a mano.";
+    const house = stayOf(dest);
+    if (!house) return "Nessun alloggio inserito per questa meta: aggiungine uno qui sotto.";
+    const scaled = house.nights === nights ? "" : `, riportato a ${nightsWord(nights)}`;
+    return `${escapeHtml(house.name)}${house.zone ? `, ${escapeHtml(house.zone)}` : ""}: ${nightsWord(house.nights)} a ${euro(house.total)}${scaled}. Tassa di soggiorno e pulizie: da controllare sull'annuncio.`;
+  };
+
   function renderBudget() {
     const dest = byId(state.dest);
     const inputs = inputsOf(dest);
     const cost = tripCost(inputs);
     const band = budgetBand();
     const [low, high] = band || [];
+    const typed = state.perDest[dest.id] || {};
+    // The lodging being tried may have been deleted, here or by someone else.
+    if (typed.house && !store.listHouses().some((h) => h.id === typed.house)) {
+      delete typed.house;
+      $("#budget-status").textContent = "";
+    }
+    const noStay = inputs.flatTotal === 0;
     const passNote = dest.passNotes?.[state.days] ? `<br><small>${dest.passNotes[state.days]}</small>` : "";
+    const optionOn = state.passOption && dest.passOption;
+    const passSource = typed[`pass${state.days}`] !== undefined
+      ? `<span class="tag">Importo inserito a mano</span>`
+      : origin(optionOn ? "Listino 2026/27" : dest.passLabels?.[state.days] || "Listino 2026/27", optionOn ? dest.passOption.source : dest.passSource);
+    const tollsTyped = typed.tolls !== undefined && typed.tolls !== dest.trip.tolls;
     const { people, cars } = state.shared;
     $("#ledger-caption").textContent = `Costo a testa, ${peopleCount(people)} e ${cars} auto. Importi arrotondati.`;
     $("#ledger-body").innerHTML = `
-      <tr><th scope="row">Skipass, ${state.days} giorni${passNote}<br>${origin(dest.passLabels?.[state.days] || "Listino 2026/27", dest.passSources?.[state.days] || dest.passSource)}</th><td>${euro(cost.pass)}</td></tr>
-      <tr><th scope="row">Appartamento<br><small>${dest.flat.note}${dest.flat.total ? "" : ` Se chiedono 7 notti, sono circa ${euro(tripCost({ ...inputs, flatTotal: dest.flat.nightly * 7 }).total)} a testa in tutto.`}</small><br>${origin("Fonte", dest.flat.source)}</th><td>${euro(cost.lodging)}</td></tr>
+      <tr><th scope="row">Skipass, ${state.days} giorni${passNote}<br>${passSource}</th><td>${euro(cost.pass)}</td></tr>
+      <tr><th scope="row">Appartamento<br><small>${stayNote(dest, inputs.nights)}</small>${houseLink(state.perDest[dest.id]?.flat === undefined ? stayOf(dest) : null)}</th><td>${euro(cost.lodging)}</td></tr>
       <tr><th scope="row">Carburante<br><small>${inputs.km} km a ${inputs.consumption} litri per 100 km, ${inputs.fuelPrice.toLocaleString("it-IT")} € al litro di benzina.</small><br>${origin("Prezzo medio", TRIP.sources.fuel)}</th><td>${euro(cost.fuel)}</td></tr>
-      <tr><th scope="row">Pedaggi<br><small>${dest.trip.tollsNote}</small><br>${origin("Fonte", dest.trip.tollsSource)}</th><td>${euro(cost.tolls)}</td></tr>
+      <tr><th scope="row">Pedaggi<br>${tollsTyped ? `<span class="tag">Importo inserito a mano</span>` : `<small>${dest.trip.tollsNote}</small><br>${origin("Fonte", dest.trip.tollsSource)}`}</th><td>${euro(cost.tolls)}</td></tr>
       <tr><th scope="row">Cibo e après-ski<br><span class="hand ledger-hand">Spesa più qualche giro al bar: mia stima, non un prezzo</span></th><td>${euro(cost.food)}</td></tr>
       ${cost.extras ? `<tr><th scope="row">Altre spese</th><td>${euro(cost.extras)}</td></tr>` : ""}`;
     $("#ledger-total").textContent = euro(cost.total);
-    $("#live-total").innerHTML = `<span>${dest.name}, ${state.days} giorni</span><strong>${euro(cost.total)}</strong><small>a testa</small>`;
+    $("#ledger-total-label").textContent = noStay ? "Totale a testa, senza alloggio" : "Totale a testa";
+    $("#live-total").innerHTML = `<span>${dest.name}, ${state.days} giorni</span><strong>${euro(cost.total)}</strong><small>${noStay ? "a testa, senza alloggio" : "a testa"}</small>`;
     $("#ledger-group").textContent = euro(cost.groupTotal);
 
     const verdict = !band ? "" : cost.total > high
@@ -224,12 +284,11 @@
       : cost.total < low
         ? `Stima: ${euro(low - cost.total)} sotto i nostri viaggi passati`
         : "Stima: dentro la fascia dei nostri viaggi passati";
-    const byNight = !dest.flat.total && state.perDest[dest.id]?.flat === undefined;
-    $("#verdict").textContent = cost.total <= high && byNight ? `${verdict}, se la casa si affitta a notte` : verdict;
+    $("#verdict").textContent = noStay ? "Manca ancora l'alloggio: il conto non è completo" : verdict;
 
     const scale = (value) => Math.min(100, Math.max(0, ((value - 400) / 600) * 100));
     const gauge = $("#gauge");
-    gauge.hidden = !band;
+    gauge.hidden = !band || noStay;
     gauge.style.setProperty("--band-start", `${scale(low)}%`);
     gauge.style.setProperty("--band-end", `${scale(high)}%`);
     gauge.style.setProperty("--mark", `${scale(cost.total)}%`);
@@ -248,21 +307,20 @@
     }
 
     $("#compare").innerHTML = TRIP.destinations.map((d) => {
-      const total = tripCost(inputsOf(d)).total;
-      const estimated = !d.flat.total && state.perDest[d.id]?.flat === undefined;
-      const label = !band ? "" : total > high ? `Sopra ${euro(high)}` : estimated ? `Sotto ${euro(high)}, casa a notte` : `Sotto ${euro(high)}`;
+      // The published figures, like the signs: what the viewer is trying out stays in the calculator.
+      if (!houseOf(d)) return `<li>${disc(d.grade)}<span>${d.name}</span><strong></strong><small>Casa da scegliere</small></li>`;
+      const total = costOf(d, TRIP.defaults.days).total;
+      const label = !band ? "" : total > high ? `Sopra ${euro(high)}` : `Entro ${euro(high)}`;
       return `<li>${disc(d.grade)}<span>${d.name}</span><strong>${euro(total)}</strong><small>${label}</small></li>`;
     }).join("");
-    const nightly = TRIP.destinations.find((d) => !d.flat.total && state.perDest[d.id]?.flat === undefined);
-    const basis = nightly
-      ? `Case su basi diverse: ${nightly.name} è una stima a notte per i soli giorni di sci, le altre sono annunci per la settimana intera. A settimana intera ${nightly.name} costerebbe ${euro(tripCost({ ...inputsOf(nightly), flatTotal: nightly.flat.nightly * 7 }).total)}. `
-      : "";
-    $("#compare-note").textContent = `${basis}${TRIP.taxNote}`;
   }
 
   function setupBudget() {
     $("#budget-dest").insertAdjacentHTML("beforeend", TRIP.destinations.map((d) => `
       <label class="choice">${disc(d.grade)}<input type="radio" name="dest" value="${d.id}" ${d.id === state.dest ? "checked" : ""}>${d.name}</label>`).join(""));
+
+    const { people, cars, nights } = TRIP.defaults.shared;
+    $("#compare-note").textContent = `Sempre con ${nightsWord(nights)}, ${TRIP.defaults.days} giorni, ${peopleCount(people)} e ${cars} auto, qualunque cosa provi qui sopra. Ogni conto usa l'alloggio di riferimento della meta o, se manca, il più economico inserito. Tassa di soggiorno e pulizie: da controllare sull'annuncio.`;
 
     const groups = [...new Set(FIELDS.map((f) => f.group))];
     $("#budget-fields").innerHTML = groups.map((group) => `
@@ -275,11 +333,16 @@
 
     $("#budget-form").addEventListener("input", (event) => {
       const { name, value, type, checked, id } = event.target;
+      $("#budget-status").textContent = "";
       if (name === "dest") {
         state.dest = value;
         state.passOption = false;
       }
-      if (name === "days") state.days = Number(value);
+      if (name === "days") {
+        state.days = Number(value);
+        // One night fewer than the days skied, unless changed by hand afterwards.
+        state.shared.nights = state.days - 1;
+      }
       if (id === "pass-option-input") {
         state.passOption = checked;
         delete edits(byId(state.dest))[`pass${state.days}`];
@@ -310,6 +373,7 @@
       state.shared = { ...TRIP.defaults.shared };
       state.perDest = {};
       state.passOption = false;
+      $("#budget-status").textContent = "";
       state.dest = TRIP.destinations[0].id;
       state.days = TRIP.defaults.days;
       document.querySelector(`input[name="dest"][value="${state.dest}"]`).checked = true;
@@ -322,9 +386,11 @@
     });
     renderBudget();
     setupQuotes();
+    setupHouses();
   }
 
   function selectBudgetDest(id) {
+    $("#budget-status").textContent = "";
     state.dest = id;
     state.passOption = false;
     const radio = document.querySelector(`input[name="dest"][value="${id}"]`);
@@ -342,7 +408,7 @@
         <li>
           <div>
             <strong>${escapeHtml(nameOf(quote.person))}: ${escapeHtml(byId(quote.dest)?.name || quote.dest)}, ${escapeHtml(quote.days)} giorni</strong>
-            <small>${escapeHtml(peopleCount(quote.people))}, ${escapeHtml(quote.cars)} auto. ${escapeHtml(quote.note || "Senza nota")}, ${shortDate(quote.createdAt)}</small>
+            <small>${quote.nights ? `${escapeHtml(nightsWord(quote.nights))}, ` : ""}${escapeHtml(peopleCount(quote.people))}, ${escapeHtml(quote.cars)} auto.${Number(quote.flatTotal) === 0 ? " Senza alloggio." : ""} ${escapeHtml(quote.note || "Senza nota")}, ${shortDate(quote.createdAt)}</small>
           </div>
           <span class="quote-total">${euro(tripCost(quote).total)}</span>
           <div class="quote-actions">
@@ -383,21 +449,123 @@
           return;
         }
         const { people, cars, consumption, fuelPrice, foodPerDay, extras, days, dest, km, tolls, flatTotal, pass } = quote;
-        state.shared = { people, cars, consumption, fuelPrice, foodPerDay, extras };
+        const nights = quote.nights ?? days - 1;
+        state.shared = { people, cars, nights, consumption, fuelPrice, foodPerDay, extras };
         state.days = days;
         state.dest = dest;
         state.passOption = Boolean(quote.passOption);
         // Only values that differ from the defaults stay fixed, so changing days still reprices the rest.
         const reopened = byId(dest);
         const typed = { km, tolls };
-        if (flatTotal !== defaultFlatTotal(reopened, days)) typed.flat = flatTotal;
+        const stay = store.listHouses().find((h) => h.dest === dest && Math.abs(houseTotal(h, nights) - flatTotal) < 0.005);
+        if (stay) typed.house = stay.id;
+        else if (flatTotal !== stayCost(reopened, nights)) typed.flat = flatTotal;
         if (pass !== listPass(reopened, days)) typed[`pass${days}`] = pass;
         state.perDest[dest] = typed;
         document.querySelector(`input[name="dest"][value="${dest}"]`).checked = true;
         document.querySelector(`input[name="days"][value="${days}"]`).checked = true;
         renderBudget();
         $("#budget-form").scrollIntoView();
-        $("#quote-status").textContent = "Preventivo riaperto: puoi modificarlo.";
+        $("#budget-status").textContent = "Preventivo riaperto: puoi modificarlo.";
+      }
+    });
+  }
+
+  // Anyone adds what they find; the organizer stars the one that sets the published figures.
+  function setupHouses() {
+    const select = $("#house-dest");
+    select.innerHTML = TRIP.destinations.map((d) => `<option value="${d.id}">${d.name}</option>`).join("");
+
+    const renderHouses = () => {
+      const { organizer, person: self } = store.session || {};
+      const { days } = TRIP.defaults;
+      const houses = store.listHouses();
+      const actions = (h, usable) => {
+        const name = escapeHtml(h.name);
+        return `<div class="quote-actions">
+              ${usable ? `<button type="button" class="btn btn-small" data-use="${escapeHtml(h.id)}" aria-label="Usa nel conto: ${name}">Usa nel conto</button>` : ""}
+              ${organizer && usable ? `<button type="button" class="btn btn-small btn-quiet" data-star="${escapeHtml(h.id)}" aria-label="${h.official ? "Togli il riferimento a" : "Segna come riferimento"}: ${name}">${h.official ? "Togli riferimento" : "Segna come riferimento"}</button>` : ""}
+              ${organizer || h.person === self ? `<button type="button" class="btn btn-small btn-quiet" data-drop="${escapeHtml(h.id)}" aria-label="Elimina: ${name}">Elimina</button>` : ""}
+            </div>`;
+      };
+      const about = (h) => `<small>${h.zone ? `${escapeHtml(h.zone)}. ` : ""}${nightsWord(h.nights)} a ${euro(h.total)}. Trovato da ${escapeHtml(nameOf(h.person))}, ${shortDate(h.createdAt)}.</small>
+              ${h.note ? `<small>${escapeHtml(h.note)}</small>` : ""}`;
+      const groups = TRIP.destinations.filter((d) => houses.some((h) => h.dest === d.id)).map((d) => `
+        <h4>${disc(d.grade)} ${d.name}</h4>
+        <ul class="quote-list house-list">${houses.filter((h) => h.dest === d.id).map((h) => {
+    const trip = tripCost({ ...defaultsOf(d, days), flatTotal: houseTotal(h, days - 1) }).total;
+    return `
+          <li>
+            <div>
+              <strong>${escapeHtml(h.name)}</strong>
+              ${about(h)}
+              ${h.official ? `<span class="house-official"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.6 1.3 6.7-6-3.3-6 3.3 1.3-6.7-5-4.6 6.8-.8z"/></svg>Alloggio di riferimento</span>` : ""}
+              ${houseLink(h)}
+            </div>
+            <span class="quote-total">${euro(trip)}<small>a testa, in tutto${h.nights === days - 1 ? "" : `, riportato a ${nightsWord(days - 1)}`}</small></span>
+            ${actions(h, true)}
+          </li>`;
+  }).join("")}</ul>`);
+      // Lodgings of a destination no longer in the trip stay visible, and can only be removed.
+      const orphans = houses.filter((h) => !byId(h.dest));
+      if (orphans.length) {
+        groups.push(`
+        <h4>Altre mete, non più in gara</h4>
+        <ul class="quote-list house-list">${orphans.map((h) => `
+          <li>
+            <div>
+              <strong>${escapeHtml(h.name)}</strong>
+              ${about(h)}
+            </div>
+            ${actions(h, false)}
+          </li>`).join("")}</ul>`);
+      }
+      $("#house-empty").hidden = groups.length > 0;
+      $("#house-list").innerHTML = groups.join("");
+    };
+    renderers.push(renderHouses);
+
+    $("#house-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const saved = await attempt($("#house-status"), "Alloggio salvato: ora lo vediamo tutti.", () => store.saveHouse({
+        dest: select.value,
+        name: $("#house-name").value,
+        zone: $("#house-zone").value,
+        url: $("#house-url").value,
+        nights: Number($("#house-nights").value),
+        total: Number($("#house-total").value),
+        note: $("#house-note").value,
+      }), $("#house-form button"));
+      if (!saved) return;
+      ["#house-name", "#house-zone", "#house-url", "#house-total", "#house-note"].forEach((id) => { $(id).value = ""; });
+      renderShared();
+    });
+
+    $("#house-list").addEventListener("click", async (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      const { use, star, drop } = button.dataset;
+      if (drop || star) {
+        const done = drop ? "Alloggio eliminato." : "Alloggio di riferimento aggiornato.";
+        await attempt($("#house-status"), done, () => (drop ? store.deleteHouse(drop) : store.setOfficialHouse(star)), button);
+        renderShared();
+        // The row just pressed is gone from the redrawn list.
+        $("#house-status").focus({ preventScroll: true });
+      }
+      if (use) {
+        const house = store.listHouses().find((h) => h.id === use);
+        if (!house) return;
+        state.dest = house.dest;
+        state.passOption = false;
+        state.shared.nights = house.nights;
+        if (house.nights + 1 in byId(house.dest).pass) state.days = house.nights + 1;
+        delete edits(byId(house.dest)).flat;
+        edits(byId(house.dest)).house = house.id;
+        document.querySelector(`input[name="dest"][value="${state.dest}"]`).checked = true;
+        document.querySelector(`input[name="days"][value="${state.days}"]`).checked = true;
+        renderBudget();
+        $("#budget-form").scrollIntoView();
+        $("#budget-status").textContent = `${house.name} è nel conto: puoi modificarlo. I numeri ufficiali non cambiano.`;
       }
     });
   }
@@ -411,7 +579,7 @@
       const votes = store.listVotes();
       const voting = votes.filter((vote) => vote.attending);
       $("#vote-results").hidden = votes.length === 0;
-      // Borda count: with three destinations, first choice is worth 3 points.
+      // Borda count: first choice is worth as many points as there are destinations.
       const points = Object.fromEntries(TRIP.destinations.map((d) => [d.id, 0]));
       voting.forEach((vote) => validRanking(vote.ranking).forEach((id, index) => {
         points[id] += TRIP.destinations.length - index;
@@ -421,7 +589,9 @@
       $("#vote-people").innerHTML = votes.map((vote) => {
         const name = escapeHtml(nameOf(vote.person));
         const ranked = validRanking(vote.ranking);
-        const choice = !vote.attending ? "stavolta passa" : ranked.length ? ranked.map((id, i) => `${i + 1}. ${byId(id).name}`).join(", ") : "ci sta, senza classifica";
+        const left = TRIP.destinations.filter((d) => !ranked.includes(d.id)).map((d) => d.name);
+        const gap = vote.attending && ranked.length && left.length ? ` (manca ${left.join(" e ")})` : "";
+        const choice = !vote.attending ? "stavolta passa" : ranked.length ? `${ranked.map((id, i) => `${i + 1}. ${byId(id).name}`).join(", ")}${gap}` : "ci sta, senza classifica";
         return `<li><strong>${name}</strong>: ${choice}</li>`;
       }).join("");
       $("#seats").innerHTML = store.listPeople().map((person) => {
@@ -452,7 +622,12 @@
       $("#voter-name").textContent = voter ? nameOf(voter) : "";
       if (touched) return;
       const saved = validRanking(store.listVotes().find((vote) => vote.person === voter)?.ranking);
-      if (saved.length === ranking.length && new Set(saved).size === ranking.length) ranking.splice(0, ranking.length, ...saved);
+      if (saved.length) {
+        // A vote from before a destination was added keeps its order, and says what is missing.
+        const left = ranking.filter((id) => !saved.includes(id));
+        ranking.splice(0, ranking.length, ...saved, ...left);
+        if (left.length) $("#vote-status").textContent = `Nel tuo voto manca ${left.map((id) => byId(id).name).join(" e ")}: controlla e salva di nuovo.`;
+      }
       renderVote();
     };
 
@@ -616,7 +791,7 @@
     const chosen = TRIP.chosen && byId(TRIP.chosen);
     $("#route").innerHTML = (chosen ? [chosen] : TRIP.destinations)
       .map((d) => `<li>${disc(d.grade)}<div><strong>${d.name}</strong><span>${d.route}</span></div></li>`).join("");
-    $("#route-title").textContent = chosen ? `La strada per ${chosen.name}` : "Le tre strade, finché non scegliamo";
+    $("#route-title").textContent = chosen ? `La strada per ${chosen.name}` : "Le strade, finché non scegliamo";
 
     const KEY = "ski-checklist-2";
     let ticked = [];
@@ -955,7 +1130,7 @@
         status.textContent = "Il salvataggio offline non è riuscito: ricarica la pagina con la rete.";
       });
       navigator.serviceWorker.ready.then(() => {
-        status.textContent = "Puoi aggiungere l'app alla schermata Home: si apre anche senza segnale, tranne il volo 3D. Per votare e salvare preventivi serve la rete.";
+        status.textContent = "Puoi aggiungere l'app alla schermata Home: si apre anche senza segnale, tranne il volo 3D. Per votare e salvare preventivi e alloggi serve la rete.";
       });
     }
     const install = $("#install");

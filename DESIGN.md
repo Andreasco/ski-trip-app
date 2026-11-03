@@ -16,6 +16,7 @@ colors:
   white: "#ffffff"
   red: "#c8202f"
   blue: "#1f5fbf"
+  green: "#1f8a4d"
   ungraded: "#8ea9bf"
   post: "#6b4a2f"
   post-dark: "#3f2a19"
@@ -248,7 +249,7 @@ Motion belongs to the paint and to one gesture. The panorama lays its strokes do
 
 **Key Characteristics:**
 - Panoramas come from code and real terrain, with a labelled fallback relief when the tiles fail. The bar scene is an authored SVG repainted with the same brush.
-- A cold ramp from snow to ink, plus red, blue and black as piste marks.
+- A cold ramp from snow to ink, plus red, blue, green and black as piste marks.
 - Physical components with material grain rather than generic cards.
 - Three typefaces with strict jobs: sign painter, data, hand note.
 - Flat tonal bands, with a single floating sheet.
@@ -267,6 +268,7 @@ A cold mountain ramp from snow to ink, with piste marks as the only saturated co
 
 ### Tertiary
 - **Blue Piste** (#1f5fbf): easy grade only, on discs and piste lines.
+- **Green Piste** (#1f8a4d): the gentlest grade, on a destination's disc.
 - **Ungraded** (#8ea9bf): runs with no grade in the map data, on piste lines and on their disc in the key. Pale on purpose, so it never reads as a grade.
 - **Post Wood** (#6b4a2f) and **Dark Wood** (#3f2a19): the signpost and the cabin in the bar scene.
 - **Forest Slate** (#2b444a): midtone of the painted forest. It lives in the painter and the flight tint, never in page chrome.
@@ -285,7 +287,7 @@ A cold mountain ramp from snow to ink, with piste marks as the only saturated co
 - **White** (#ffffff): text on deep and ink, input ground, disc rings, focus and invalid marks on dark grounds.
 
 ### Named Rules
-**The Piste Code Rule.** Blue, red and black appear as saturated marks only to grade a piste or a destination, with a legend in the chapter that draws them. Red also draws the way down, on the rail and the red piste in the bar scene. It never marks an action, a current or selected state, focus or an error; those use ink, deep or snow.
+**The Piste Code Rule.** Blue, green, red and black appear as saturated marks only to grade a piste or a destination, with a legend in the chapter that draws them. Red also draws the way down, on the rail and the red piste in the bar scene. It never marks an action, a current or selected state, focus or an error; those use ink, deep or snow.
 
 **The Cold Ground Rule.** Grounds and panels come from the snow-to-ink ramp. Warm neutrals are reserved for wood, so a brown surface is always a physical object in the scene.
 
@@ -415,6 +417,9 @@ A paper strip with a 4px double ink rule, sticky at the top of the Conto band. I
 
 ### Quote Calculator
 Number fields grouped by topic in fieldsets with a Bowlby One legend at 1.2rem. Each group is a two-column grid at every width, with a 12px gap, labels at 0.9375rem and inputs aligned to the bottom so uneven labels keep them level.
+
+### Lodging Row
+A saved-quote row, grouped under its destination's disc. It adds the zone, who found it, a source link only for https addresses, and the whole trip's cost per person in place of the quote total. The one that sets the published figures carries an inline deep star and the words "Alloggio di riferimento". Only the organizer can set it; the author and the organizer can delete.
 
 ### Saved Quote Row
 A paper row with a 4px double ink rule on the deep band, 12px inset. Name and note on the left, total in Bowlby One at 1.4rem on the right, and a row of 46px small buttons beneath.
