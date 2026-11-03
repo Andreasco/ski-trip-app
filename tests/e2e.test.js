@@ -749,9 +749,9 @@ function startServer(db, net) {
     if (SHOTS) {
       await js(`document.getElementById("gate-submit").click(); await $until(() => document.getElementById("gate-form").classList.contains("is-stamped")); await new Promise((r) => setTimeout(r, 300));`);
       await shot("g04-stamped");
-      await sleep(3700);
+      await sleep(5700);
       await shot("g05-turnstile-opening");
-      await sleep(2600);
+      await sleep(3600);
       await shot("g06-after-the-gate");
       await out();
       await go(`?per=bravo#k=${CODES.bravo}`);
@@ -760,14 +760,14 @@ function startServer(db, net) {
       document.getElementById("gate-submit").click();
       const t = performance.now();
       let stampedAt = 0; let openedAt = 0; let wish = "";
-      while (performance.now() - t < 6000) {
+      while (performance.now() - t < 8500) {
         if (!stampedAt && document.getElementById("gate-form").classList.contains("is-stamped")) { stampedAt = performance.now(); wish = document.getElementById("gate-submit").textContent; }
         if (!openedAt && gate.classList.contains("is-open")) openedAt = performance.now();
         seen.push({ stamped: document.getElementById("gate-form").classList.contains("is-stamped"), open: gate.classList.contains("is-open"), shown: getComputedStyle(gate).display !== "none" });
         await new Promise((r) => setTimeout(r, 60));
       }
       return { stamped: seen.some((s) => s.stamped), opened: seen.some((s) => s.open), gone: !seen[seen.length - 1].shown, locked: document.documentElement.classList.contains("locked"), wish, held: Math.round(openedAt - stampedAt) }`);
-    check("the wish stays long enough to read", opening.wish === "Buona discesa" && opening.held >= 2800, opening);
+    check("the wish stays long enough to read", opening.wish === "Buona discesa" && opening.held >= 4300, opening);
     check("the stamp, then the turnstile, then the page", opening.stamped && opening.opened && opening.gone && !opening.locked, opening);
     await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
 

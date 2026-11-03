@@ -601,11 +601,11 @@
       form.classList.add("is-stamped");
       button.textContent = "Buona discesa";
       // Long enough to enjoy the stamp and the wish before the turnstile opens.
-      await sleep(3000);
+      await sleep(4500);
       gate.classList.add("is-open");
       document.documentElement.classList.remove("locked");
       $("#top h1").focus({ preventScroll: true });
-      await sleep(2200);
+      await sleep(3200);
       gate.classList.remove("is-open");
       if (location.hash.length > 1) document.querySelector(location.hash)?.scrollIntoView();
     });
