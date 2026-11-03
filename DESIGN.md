@@ -423,7 +423,7 @@ A paper row with a 4px double ink rule on the deep band, 12px inset. Name and no
 Hidden until the first vote. Destinations in score order, each with disc, name and bold points over a sky hairline. Beneath it, a plain list states each person's ranking in words, or that they pass.
 
 ### Proposal Form and List
-A form capped at 34rem: a bold visible label, a textarea and a default deep button. Saved proposals are plain snow rows, 12px inset, with no rule or grain, so they stay quieter than a saved quote. The organizer also sees two 46px small buttons to accept or discard, and everyone sees the status in words.
+A form capped at 34rem: a bold visible label, a textarea and a default deep button. Saved proposals are plain snow rows, 12px inset, with no rule or grain, so they stay quieter than a saved quote. The organizer also sees two 46px small buttons to accept or discard, the author one to delete, and everyone sees the status in words.
 
 ### Budget Gauge
 An 18px night-blue track, the past-trip range as a sky band, and an ink 8px marker with white border that glides on the shared easing. A sentence below always states the verdict, so the gauge is never the only signal.

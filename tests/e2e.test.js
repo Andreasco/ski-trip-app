@@ -237,6 +237,11 @@ function startServer(db, net) {
   const proposal = await rpc(db, "save_proposal", { p_code: CODES.bravo, p_text: "prova" });
   await refused("only the organizer closes proposals", () => rpc(db, "set_proposal_status", { p_code: CODES.bravo, p_id: proposal, p_status: "accepted" }), "not_allowed");
   await refused("a status must exist", () => rpc(db, "set_proposal_status", { p_code: CODES.alfa, p_id: proposal, p_status: "maybe" }));
+  await refused("nobody deletes another's proposal, not even the organizer", () => rpc(db, "delete_proposal", { p_code: CODES.alfa, p_id: proposal }), "not_allowed");
+  await refused("a proposal cannot be deleted with a bad code", () => rpc(db, "delete_proposal", { p_code: "NOPE", p_id: proposal }), "bad_code");
+  const spare = await rpc(db, "save_proposal", { p_code: CODES.bravo, p_text: "da togliere" });
+  await rpc(db, "delete_proposal", { p_code: CODES.bravo, p_id: spare });
+  await refused("a proposal cannot be deleted twice", () => rpc(db, "delete_proposal", { p_code: CODES.bravo, p_id: spare }), "not_allowed");
   await rpc(db, "set_proposal_status", { p_code: CODES.alfa, p_id: proposal, p_status: "accepted" });
   const first = await rpc(db, "read_all", { p_code: CODES.delta });
   check("everyone with a code reads the same data", first.proposals[0]?.status === "accepted" && first.proposals[0]?.text === "prova", first.proposals);
@@ -552,8 +557,10 @@ function startServer(db, net) {
     check("a proposal is listed and escaped", await js(`return $t("#proposal-list span") === "<b>Partiamo</b> prima" && !document.querySelector("#proposal-list b")`));
     check("a proposal starts in discussion", (await js(`return $t("#proposal-list small")`)).startsWith("In discussione"));
     check("only the organizer sees the status buttons", await js(`return !document.querySelector("[data-status]")`));
+    check("the author can delete their proposal", await js(`return $t("[data-remove]") === "Elimina"`));
     await login("alfa");
     check("the organizer sees the status buttons", await js(`return document.querySelectorAll("[data-status]").length === 2`));
+    check("the organizer cannot delete someone else's proposal", await js(`return !document.querySelector("[data-remove]")`));
     await js(`document.querySelector(".vote").scrollIntoView();`);
     await settle();
     await shot("g07-vote-as-organizer");
@@ -566,6 +573,11 @@ function startServer(db, net) {
     check("the current status cannot be chosen again", await js(`return document.querySelector('[data-status="accepted"]').disabled`));
     await login("delta");
     check("the decision reaches everyone", (await js(`return $t("#proposal-list small")`)).startsWith("Accolta"));
+    check("someone else sees no delete button", await js(`return !document.querySelector("[data-remove]")`));
+    await login("bravo");
+    await js(`document.getElementById("proposal-text").value = "da togliere"; document.getElementById("proposal-form").requestSubmit(); await $until(() => document.querySelectorAll("#proposal-list li").length === 2);`);
+    await js(`document.querySelector("[data-remove]").click(); await $until(() => $t("#proposal-status") === "Proposta eliminata.");`);
+    check("deleting removes only that proposal", (await js(`return document.querySelectorAll("#proposal-list li").length`)) === 1 && (await js(`return $t("#proposal-list span")`)) !== "da togliere", await js(`return $t("#proposal-list span")`));
 
     // Failures must say so
     console.error(`[${Math.round(process.uptime())}s] Failures must say so: ${passed} ok, ${failures.length} failed`);

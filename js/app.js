@@ -466,16 +466,21 @@
 
     const STATUS = { open: "In discussione", accepted: "Accolta", rejected: "Scartata" };
     const renderProposals = () => {
-      const organizer = store.session?.organizer;
+      const { organizer, person: self } = store.session || {};
       $("#proposal-list").innerHTML = store.listProposals().map((p) => `
         <li><strong>${escapeHtml(nameOf(p.person))}</strong><span>${escapeHtml(p.text)}</span><small>${STATUS[p.status] || "In discussione"}, ${shortDate(p.createdAt)}</small>
-        ${organizer ? `<div class="proposal-actions">
-          <button type="button" class="btn btn-small" data-status="accepted" data-id="${escapeHtml(p.id)}" ${p.status === "accepted" ? "disabled" : ""}>Accogli</button>
-          <button type="button" class="btn btn-small btn-quiet" data-status="rejected" data-id="${escapeHtml(p.id)}" ${p.status === "rejected" ? "disabled" : ""}>Scarta</button>
+        ${organizer || p.person === self ? `<div class="proposal-actions">
+          ${organizer ? `<button type="button" class="btn btn-small" data-status="accepted" data-id="${escapeHtml(p.id)}" ${p.status === "accepted" ? "disabled" : ""}>Accogli</button>
+          <button type="button" class="btn btn-small btn-quiet" data-status="rejected" data-id="${escapeHtml(p.id)}" ${p.status === "rejected" ? "disabled" : ""}>Scarta</button>` : ""}
+          ${p.person === self ? `<button type="button" class="btn btn-small btn-quiet" data-remove="${escapeHtml(p.id)}">Elimina</button>` : ""}
         </div>` : ""}</li>`).join("");
     };
     $("#proposal-list").addEventListener("click", async (event) => {
-      const { status, id } = event.target.dataset || {};
+      const { status, id, remove } = event.target.dataset || {};
+      if (remove) {
+        await attempt($("#proposal-status"), "Proposta eliminata.", () => store.deleteProposal(remove), event.target);
+        renderShared();
+      }
       if (!status) return;
       await attempt($("#proposal-status"), `Proposta segnata come ${STATUS[status].toLowerCase()}.`, () => store.setProposalStatus(id, status), event.target);
       renderShared();
