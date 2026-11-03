@@ -383,6 +383,7 @@
       ctx.fillStyle = "#10192b";
       ctx.fillText(label.name, x, top - 3 * unit);
     });
+    return placed.length;
   }
 
   // Painted grain for the page's physical surfaces: boards, the post, the paper.
@@ -589,7 +590,7 @@
       ctx.filter = "none";
       drawTrees(ctx, W, H, scene, unit);
       if (pistes) drawPistes(ctx, pistes.features, scene, unit);
-      if (!synthetic) drawLabels(ctx, peaksOnly ? dest.labels.filter((l) => l.peak) : dest.labels, scene, W, unit);
+      if (!synthetic) canvas.dataset.labels = drawLabels(ctx, peaksOnly ? dest.labels.filter((l) => l.peak) : dest.labels, scene, W, unit);
       const fade = ctx.createLinearGradient(0, H * 0.88, 0, H);
       fade.addColorStop(0, "rgba(247,249,251,0)");
       fade.addColorStop(1, "rgba(247,249,251,1)");

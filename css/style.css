@@ -8,6 +8,7 @@
   --ink: #10192b;
   --red: #c8202f;
   --blue: #1f5fbf;
+  --green: #1f8a4d;
   --post: #6b4a2f;
   --go: #10192b;
   --gutter-left: 26px;
@@ -44,6 +45,7 @@ small { font-size: .875rem; }
 .disc circle { stroke: #fff; stroke-width: 2.5; }
 .disc-red circle { fill: var(--red); }
 .disc-blue circle { fill: var(--blue); }
+.disc-green circle { fill: var(--green); }
 .disc-black circle { fill: var(--ink); }
 .disc-none circle { fill: #8ea9bf; }
 
@@ -219,7 +221,7 @@ main > section:not(:first-child)::before, .footer::before {
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; }
 .fields label { font-size: .9375rem; line-height: 1.2; }
 .quote-form, .proposal-form { display: grid; gap: 12px; max-width: 34rem; }
-input[type="text"], textarea { width: 100%; min-height: 50px; padding: .6rem .7rem; font: 500 1.0625rem/1.35 var(--body); color: var(--ink); background: #fff; border: 2px solid var(--ink); border-radius: 4px; }
+input[type="text"], input[type="url"], textarea { width: 100%; min-height: 50px; padding: .6rem .7rem; font: 500 1.0625rem/1.35 var(--body); color: var(--ink); background: #fff; border: 2px solid var(--ink); border-radius: 4px; }
 input::placeholder, textarea::placeholder { color: #4d5a70; }
 .btn:disabled { cursor: not-allowed; }
 .btn-small { min-height: 46px; padding: .4rem .8rem; font-size: 1rem; }
@@ -235,7 +237,18 @@ input::placeholder, textarea::placeholder { color: #4d5a70; }
 .quote-list small { color: #3c4a60; overflow-wrap: anywhere; }
 .quote-list strong, .quote-list small { display: block; }
 .quote-total { font: 400 1.4rem/1.2 var(--display); }
-.quote-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+.quote-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.houses h4 { display: flex; align-items: center; gap: 8px; margin: 1.4rem 0 .6rem; font: 800 1.2rem/1.2 var(--body); }
+.house-form .fields { margin: 0; }
+.house-form .fields label { font-size: inherit; }
+.section > .quote-form { margin-left: max(0px, calc((100% - 62rem) / 2)); }
+.budget-status:empty { margin: 0; }
+#house-status:focus { outline: none; }
+.house-list .quote-total { text-align: right; }
+.house-list .quote-total small { display: block; font: 400 .8125rem/1.2 var(--body); }
+.house-official { display: inline-flex; align-items: center; gap: 5px; margin-top: .3rem; font-size: .875rem; font-weight: 800; color: var(--deep); }
+.house-official svg { width: 1.05em; height: 1.05em; fill: var(--deep); }
+.house-list a.tag { color: var(--deep); }
 .proposal-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
 .proposal-list li { display: grid; gap: 2px; padding: 12px; background: var(--snow); overflow-wrap: anywhere; }
 .proposal-list small { color: #3c4a60; }

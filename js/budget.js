@@ -9,7 +9,7 @@ globalThis.tripCost = function tripCost({ days, pass, flatTotal, km, consumption
   return { pass, lodging, fuel, tolls: tollShare, food, extras, total, groupTotal: total * people };
 };
 
-// Weekly rentals cost the same however many days we ski; the rest are priced per night.
-globalThis.defaultFlatTotal = function defaultFlatTotal(dest, days) {
-  return dest.flat.total ?? dest.flat.nightly * days;
+// A lodging's price, brought to another length of stay at the same rate.
+globalThis.houseTotal = function houseTotal(house, nights) {
+  return (house.total / house.nights) * nights;
 };
