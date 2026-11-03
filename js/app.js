@@ -60,7 +60,7 @@
   };
 
   const state = {
-    dest: "alpe",
+    dest: TRIP.destinations[0].id,
     days: TRIP.defaults.days,
     passOption: false,
     shared: { ...TRIP.defaults.shared },
@@ -600,8 +600,8 @@
       refreshShared();
       form.classList.add("is-stamped");
       button.textContent = "Buona discesa";
-      // Long enough to read the stamp and the wish before the turnstile opens.
-      await sleep(1200);
+      // Long enough to enjoy the stamp and the wish before the turnstile opens.
+      await sleep(3000);
       gate.classList.add("is-open");
       document.documentElement.classList.remove("locked");
       $("#top h1").focus({ preventScroll: true });
@@ -955,7 +955,7 @@
         status.textContent = "Il salvataggio offline non è riuscito: ricarica la pagina con la rete.";
       });
       navigator.serviceWorker.ready.then(() => {
-        status.textContent = "Salvata sul telefono: si apre anche senza segnale, tranne il volo 3D. Per salvare serve la rete.";
+        status.textContent = "Salva l'app sul telefono: si apre anche senza segnale, tranne il volo 3D. Per votare e salvare preventivi serve la rete.";
       });
     }
     const install = $("#install");

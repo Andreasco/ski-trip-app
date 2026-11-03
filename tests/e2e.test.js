@@ -429,10 +429,12 @@ function startServer(db, net) {
     await js(`$pick("dest", "${nightlyDest.id}");`);
     check("ledger states the week price", (await js(`return document.getElementById("ledger-body").textContent`)).includes(nightlyWeek));
 
+    check("destinations run from the black to the blue", TRIP.destinations.map((d) => d.grade).join() === "black,red,blue" && (await js(`return [...document.querySelectorAll("#dest-list h3")].map((h) => h.textContent.trim()).join()`)) === TRIP.destinations.map((d) => d.name).join());
+
     // Calculator
     console.error(`[${Math.round(process.uptime())}s] Calculator: ${passed} ok, ${failures.length} failed`);
-    const alpe = dest("alpe");
-    await js(`$pick("dest", "alpe");`);
+    const first = TRIP.destinations[0];
+    await js(`$pick("dest", "${first.id}");`);
     const total = () => js(`return $t("#live-total strong")`);
     const cases = [
       ["people", 3, { people: 3 }], ["cars", 2, { cars: 2 }], ["km", 500, { km: 500 }], ["consumption", 9, { consumption: 9 }],
@@ -441,13 +443,13 @@ function startServer(db, net) {
     ];
     for (const [field, value, over] of cases) {
       await js(`document.getElementById("budget-reset").click(); $set("${field}", "${value}");`);
-      check(`field ${field} changes the total`, (await total()) === euro(expected(alpe, 4, over)), await total());
+      check(`field ${field} changes the total`, (await total()) === euro(expected(first, 4, over)), await total());
     }
     await js(`document.getElementById("budget-reset").click();`);
-    check("reset restores the total", (await total()) === euro(expected(alpe, 4)));
+    check("reset restores the total", (await total()) === euro(expected(first, 4)));
     for (const [field, bad] of [["people", ""], ["people", "0"], ["people", "1.5"], ["people", "51"], ["cars", "0"], ["km", "-5"], ["consumption", "101"], ["flat", "1000001"], ["fuelPrice", ""]]) {
       await js(`document.getElementById("budget-reset").click(); $set("${field}", "${bad}");`);
-      check(`invalid ${field}="${bad}" keeps the total`, (await total()) === euro(expected(alpe, 4)));
+      check(`invalid ${field}="${bad}" keeps the total`, (await total()) === euro(expected(first, 4)));
       check(`invalid ${field}="${bad}" shows an error`, await js(`return !document.getElementById("${field}-error").hidden`));
       await js(`const e = document.getElementById("${field}"); e.dispatchEvent(new Event("change", { bubbles: true }));`);
       check(`invalid ${field} clears on leaving`, await js(`return document.getElementById("${field}-error").hidden && document.getElementById("${field}").value !== "${bad}"`));
@@ -525,7 +527,7 @@ function startServer(db, net) {
     check("the vote is confirmed", (await js(`return $t("#vote-status")`)).includes("Voto salvato"));
     const tally = () => js(`return [...document.querySelectorAll("#vote-tally li")].map((l) => l.innerText.replace(/\\s+/g, " "))`);
     check("first choice scores 3", (await tally())[0] === "Cervinia 3 punti", await tally());
-    await js(`document.querySelector('[data-move="alpe"][data-by="1"]').click();`);
+    await js(`document.querySelector('[data-move="alpe"][data-by="-1"]').click();`);
     check("moving after saving clears the confirmation", (await js(`return $t("#vote-status")`)) === "");
     await login("bravo");
     check("a new voter never inherits an order", JSON.stringify(await js(`return $rank()`)) === JSON.stringify(base), await js(`return $rank()`));
@@ -538,7 +540,7 @@ function startServer(db, net) {
     await js(`document.getElementById("save-vote").click(); await $until(() => $t("#vote-status"));`);
     await js(`document.getElementById("vota").scrollIntoView(); await $until(() => document.getElementById("car-canvas").dataset.painted, 8000); await new Promise((r) => setTimeout(r, 900));`);
     await shot("g11-car-and-tally");
-    check("votes add up", JSON.stringify(await tally()) === JSON.stringify(["Alpe d'Huez 5 punti", "Cervinia 4 punti", "Val Thorens 3 punti"]), await tally());
+    check("votes add up", JSON.stringify(await tally()) === JSON.stringify(["Val Thorens 5 punti", "Cervinia 4 punti", "Alpe d'Huez 3 punti"]), await tally());
     await login("alfa");
     check("a voter finds their own ranking", (await js(`return $rank()`))[0] === "Cervinia", await js(`return $rank()`));
     await js(`document.getElementById("save-vote").click(); await $until(() => $t("#vote-status"));`);
@@ -657,7 +659,7 @@ function startServer(db, net) {
     const offHero = await js(`document.getElementById("mete").scrollIntoView(); ${nav(true)}`);
     check("bottom nav appears after the hero", offHero.on, offHero);
     for (const section of ["conto", "vota", "parti"]) {
-      check(`nav marks ${section}`, await js(`document.getElementById("${section}").scrollIntoView(); await new Promise((r) => setTimeout(r, 300)); return document.querySelector('#bottom-nav a[aria-current]')?.getAttribute("href") === "#${section}"`));
+      check(`nav marks ${section}`, await js(`document.getElementById("${section}").scrollIntoView(); return $until(() => document.querySelector('#bottom-nav a[aria-current]')?.getAttribute("href") === "#${section}", 3000)`));
     }
     await js(`const box = document.querySelector('#checklist input[data-index="2"]'); box.click();`);
     await go();
@@ -746,7 +748,7 @@ function startServer(db, net) {
     if (SHOTS) {
       await js(`document.getElementById("gate-submit").click(); await $until(() => document.getElementById("gate-form").classList.contains("is-stamped")); await new Promise((r) => setTimeout(r, 300));`);
       await shot("g04-stamped");
-      await sleep(1150);
+      await sleep(2950);
       await shot("g05-turnstile-opening");
       await sleep(1600);
       await shot("g06-after-the-gate");
@@ -757,14 +759,14 @@ function startServer(db, net) {
       document.getElementById("gate-submit").click();
       const t = performance.now();
       let stampedAt = 0; let openedAt = 0; let wish = "";
-      while (performance.now() - t < 3200) {
+      while (performance.now() - t < 5000) {
         if (!stampedAt && document.getElementById("gate-form").classList.contains("is-stamped")) { stampedAt = performance.now(); wish = document.getElementById("gate-submit").textContent; }
         if (!openedAt && gate.classList.contains("is-open")) openedAt = performance.now();
         seen.push({ stamped: document.getElementById("gate-form").classList.contains("is-stamped"), open: gate.classList.contains("is-open"), shown: getComputedStyle(gate).display !== "none" });
         await new Promise((r) => setTimeout(r, 60));
       }
       return { stamped: seen.some((s) => s.stamped), opened: seen.some((s) => s.open), gone: !seen[seen.length - 1].shown, locked: document.documentElement.classList.contains("locked"), wish, held: Math.round(openedAt - stampedAt) }`);
-    check("the wish stays long enough to read", opening.wish === "Buona discesa" && opening.held >= 1000, opening);
+    check("the wish stays long enough to read", opening.wish === "Buona discesa" && opening.held >= 2800, opening);
     check("the stamp, then the turnstile, then the page", opening.stamped && opening.opened && opening.gone && !opening.locked, opening);
     await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
 
