@@ -18,6 +18,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Any display rule, such as .btn, would otherwise show what is meant to stay hidden. */
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; scroll-padding-top: 12px; scroll-padding-bottom: 68px; scrollbar-color: var(--deep) var(--ice); }
 body { margin: 0; background: var(--snow); color: var(--ink); font: 400 1.125rem/1.5 var(--body); font-variant-numeric: tabular-nums; overflow-x: hidden; }
 ::selection { background: var(--deep); color: #fff; }
@@ -250,7 +252,6 @@ input[type="number"], select { width: 100%; min-height: 50px; padding: .4rem .7r
 [aria-invalid="true"] { border-color: var(--ink); outline: 3px dashed var(--ink); }
 .error { margin: .4rem 0 0; font-size: 1rem; font-weight: 600; }
 .check { display: flex; align-items: center; gap: 10px; min-height: 48px; font-weight: 600; cursor: pointer; }
-.check[hidden] { display: none; }
 .check input { width: 1.3rem; height: 1.3rem; accent-color: var(--deep); }
 
 .ledger { width: 100%; border-collapse: collapse; margin-top: 1.8rem; }

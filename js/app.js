@@ -78,7 +78,7 @@
     { id: "tolls", label: "Pedaggi andata e ritorno, € per auto", group: "Viaggio", min: 0, max: 100000, step: 1, perDest: true },
     { id: "flat", label: "Appartamento, € in totale", group: "Soggiorno", min: 0, max: 1000000, step: 10, perDest: true },
     { id: "pass", label: "Skipass, € a testa", group: "Soggiorno", min: 0, max: 100000, step: 1, perDest: true },
-    { id: "foodPerDay", label: "Cibo e dopo-sci, € al giorno a testa", group: "Soggiorno", min: 0, max: 10000, step: 5 },
+    { id: "foodPerDay", label: "Cibo e après-ski, € al giorno a testa", group: "Soggiorno", min: 0, max: 10000, step: 5 },
     { id: "extras", label: "Altre spese, € a testa", group: "Soggiorno", min: 0, max: 100000, step: 5 },
   ];
 
@@ -188,7 +188,7 @@
             <div><dt>Piste</dt><dd>${d.km} km${d.kmNote ? `<small>${d.kmNote}</small>` : ""}</dd></div>
             <div><dt>Quota massima</dt><dd>${grouped(d.top)} m</dd></div>
             <div><dt>Da Torino</dt><dd>${d.drive}</dd></div>
-            <div><dt>Dopo-sci</dt><dd>${d.apres}${d.apresSource ? `<small><a href="${d.apresSource.url}" target="_blank" rel="noopener">${d.apresSource.label}</a></small>` : ""}</dd></div>
+            <div><dt>Après-ski</dt><dd>${d.apres}${d.apresSource ? `<small><a href="${d.apresSource.url}" target="_blank" rel="noopener">${d.apresSource.label}</a></small>` : ""}</dd></div>
           </dl>
           <p class="note"><strong>Il contro:</strong> ${d.downside}</p>
           <p class="dest-actions">
@@ -213,7 +213,7 @@
       <tr><th scope="row">Appartamento<br><small>${dest.flat.note}${dest.flat.total ? "" : ` Se chiedono 7 notti, sono circa ${euro(tripCost({ ...inputs, flatTotal: dest.flat.nightly * 7 }).total)} a testa in tutto.`}</small><br>${origin("Fonte", dest.flat.source)}</th><td>${euro(cost.lodging)}</td></tr>
       <tr><th scope="row">Carburante<br><small>${inputs.km} km a ${inputs.consumption} litri per 100 km, ${inputs.fuelPrice.toLocaleString("it-IT")} € al litro di benzina.</small><br>${origin("Prezzo medio", TRIP.sources.fuel)}</th><td>${euro(cost.fuel)}</td></tr>
       <tr><th scope="row">Pedaggi<br><small>${dest.trip.tollsNote}</small><br>${origin("Fonte", dest.trip.tollsSource)}</th><td>${euro(cost.tolls)}</td></tr>
-      <tr><th scope="row">Cibo e dopo-sci<br><span class="hand ledger-hand">Spesa più qualche giro al bar: mia stima, non un prezzo</span></th><td>${euro(cost.food)}</td></tr>
+      <tr><th scope="row">Cibo e après-ski<br><span class="hand ledger-hand">Spesa più qualche giro al bar: mia stima, non un prezzo</span></th><td>${euro(cost.food)}</td></tr>
       ${cost.extras ? `<tr><th scope="row">Altre spese</th><td>${euro(cost.extras)}</td></tr>` : ""}`;
     $("#ledger-total").textContent = euro(cost.total);
     $("#live-total").innerHTML = `<span>${dest.name}, ${state.days} giorni</span><strong>${euro(cost.total)}</strong><small>a testa</small>`;
@@ -600,7 +600,8 @@
       refreshShared();
       form.classList.add("is-stamped");
       button.textContent = "Buona discesa";
-      await sleep(420);
+      // Long enough to read the stamp and the wish before the turnstile opens.
+      await sleep(1200);
       gate.classList.add("is-open");
       document.documentElement.classList.remove("locked");
       $("#top h1").focus({ preventScroll: true });
@@ -617,7 +618,7 @@
       .map((d) => `<li>${disc(d.grade)}<div><strong>${d.name}</strong><span>${d.route}</span></div></li>`).join("");
     $("#route-title").textContent = chosen ? `La strada per ${chosen.name}` : "Le tre strade, finché non scegliamo";
 
-    const KEY = "ski-checklist";
+    const KEY = "ski-checklist-2";
     let ticked = [];
     try {
       ticked = JSON.parse(localStorage.getItem(KEY)) || [];
