@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>La Discesa 2027</title>
+  <meta name="description" content="Quattro sciatori, tre mete, un viaggio da scegliere per fine febbraio 2027.">
+  <meta name="theme-color" content="#2b4c7e">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:title" content="La Discesa 2027">
+  <meta property="og:description" content="Quattro sciatori, tre mete e un conto onesto. Fine febbraio, da Torino in auto: tocca a te scegliere.">
+  <meta property="og:url" content="https://andreasco.github.io/ski-trip-app/">
+  <meta property="og:image" content="https://andreasco.github.io/ski-trip-app/icons/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preload" href="fonts/BowlbyOne-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Before the first paint, so nothing behind the turnstile flashes.
+    try { if (!localStorage.getItem("discesa-session")) document.documentElement.classList.add("locked"); } catch { document.documentElement.classList.add("locked"); }
+  </script>
+</head>
+<body>
+  <div id="gate" class="gate">
+    <form id="gate-form" class="skipass" novalidate>
+      <h2>Skipass 2027</h2>
+      <p id="gate-name" class="skipass-name" hidden></p>
+      <p class="skipass-valid">La Discesa, fine febbraio 2027, da Torino.</p>
+      <p id="gate-line" class="hand skipass-line" hidden></p>
+      <div id="gate-field" class="field">
+        <label for="gate-code">Il codice del tuo skipass</label>
+        <input id="gate-code" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" enterkeyhint="go" spellcheck="false" placeholder="Es. 7K3Q-9XWP" aria-describedby="gate-status">
+        <p class="fine">Il codice è nel messaggio che hai ricevuto.</p>
+      </div>
+      <svg class="skipass-code" viewBox="0 0 240 24" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h4v24H0zM7 0h2v24H7zM12 0h6v24h-6zM21 0h2v24h-2zM27 0h3v24h-3zM33 0h7v24h-7zM43 0h2v24h-2zM48 0h4v24h-4zM56 0h2v24h-2zM61 0h6v24h-6zM70 0h3v24h-3zM76 0h2v24h-2zM82 0h7v24h-7zM92 0h2v24h-2zM97 0h4v24h-4zM104 0h3v24h-3zM111 0h6v24h-6zM120 0h2v24h-2zM125 0h4v24h-4zM133 0h7v24h-7zM143 0h2v24h-2zM149 0h3v24h-3zM155 0h6v24h-6zM164 0h2v24h-2zM169 0h4v24h-4zM177 0h2v24h-2zM182 0h7v24h-7zM192 0h3v24h-3zM198 0h2v24h-2zM204 0h6v24h-6zM213 0h2v24h-2zM218 0h4v24h-4zM226 0h3v24h-3zM232 0h8v24h-8z"/></svg>
+      <button id="gate-submit" type="submit" class="btn btn-go">Timbra lo skipass</button>
+      <p id="gate-status" class="skipass-status" role="alert"></p>
+      <span class="stamp" aria-hidden="true">Valido</span>
+    </form>
+    <div class="turnstile" aria-hidden="true"><span class="turnstile-post"></span><span class="turnstile-arm"></span><span class="turnstile-arm"></span><span class="turnstile-post"></span></div>
+  </div>
+  <noscript><p class="noscript">Questa pagina ha bisogno di JavaScript per mostrare mete, conto e voto.</p></noscript>
+  <a class="skip" href="#mete">Vai alle mete</a>
+  <svg id="rail" aria-hidden="true"><path/><circle r="6"/></svg>
+
+  <header id="top" class="hero">
+    <canvas id="hero-canvas" role="img" aria-label="Panorama dipinto del Cervino e di Cervinia"></canvas>
+    <div class="cartouche">
+      <h1 tabindex="-1">Quattro sciatori, una discesa da scegliere</h1>
+      <p id="personal" class="hand">Ho fatto i conti e disegnato le piste. A te restano solo le gambe.</p>
+      <p class="offer">Fine febbraio 2027, da Torino in auto, 4-5 giorni. <span id="hero-cost"></span></p>
+    </div>
+    <nav class="post" aria-label="Le tre mete">
+      <div id="signs"></div>
+      <a class="btn btn-go" href="#vota">Vota la tua meta</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="storia" class="section">
+      <h2>Le piste già fatte</h2>
+      <p class="measure">Abbiamo già dimostrato di saper sopravvivere insieme a un appartamento. Manca solo il cartello di quest'anno.</p>
+      <ol id="past" class="past"></ol>
+      <div id="photos" class="photos" hidden>
+        <div id="photos-prints"></div>
+        <p id="photos-note" class="fine" hidden>Non riesco a caricare tutte le foto: servono la rete e il tuo codice.</p>
+      </div>
+    </section>
+
+    <section id="mete" class="section section-flush">
+      <div class="section-head">
+        <h2>Tre piste, tre difficoltà</h2>
+        <p class="legend">Il colore è il mio giudizio sul viaggio: la blu è la più vicina, la rossa sta nel mezzo, la nera ha i pedaggi più cari.</p>
+        <ul class="piste-key" aria-label="Legenda delle piste"></ul>
+      </div>
+      <div id="dest-list"></div>
+      <p class="fine">Panorami dipinti via codice su dati di elevazione reali: illustrazioni, non in scala.</p>
+    </section>
+
+    <section id="volo" class="section section-sky">
+      <h2>Prima di salire, sorvola</h2>
+      <p class="measure">Terreno vero, piste vere, nessun viaggio ancora prenotato.</p>
+      <div id="flight-dest" class="pills" role="group" aria-label="Scegli la meta da sorvolare"></div>
+      <div id="map" class="map" aria-label="Mappa 3D del terreno"></div>
+      <ul class="piste-key" aria-label="Legenda delle piste"></ul>
+      <div class="flight-bar">
+        <button id="flight-start" type="button" class="btn">Parti in volo</button>
+        <p id="flight-status" role="status"></p>
+      </div>
+    </section>
+
+    <section id="conto" class="section section-deep">
+      <h2>Il conto, senza sconti</h2>
+      <p class="measure">Il preventivo del viaggio, voce per voce: benzina e pedaggi compresi. Cambia quello che vuoi, salvalo e confrontalo con gli altri.</p>
+      <p id="live-total" class="live-total"></p>
+      <form id="budget-form" class="budget">
+        <fieldset id="budget-dest" class="choices"><legend>Meta</legend></fieldset>
+        <fieldset class="choices">
+          <legend>Giorni di sci</legend>
+          <label class="choice"><input type="radio" name="days" value="4" checked>4 giorni</label>
+          <label class="choice"><input type="radio" name="days" value="5">5 giorni</label>
+        </fieldset>
+        <div id="budget-fields" class="budget-fields"></div>
+        <label id="pass-option" class="check" hidden><input id="pass-option-input" type="checkbox"><span id="pass-option-label"></span></label>
+        <button id="budget-reset" type="button" class="btn btn-quiet">Riporta ai valori iniziali</button>
+      </form>
+      <table class="ledger">
+        <caption id="ledger-caption"></caption>
+        <tbody id="ledger-body"></tbody>
+        <tfoot><tr><th scope="row">Totale a testa</th><td id="ledger-total"></td></tr><tr class="ledger-group"><th scope="row">Totale del gruppo</th><td id="ledger-group"></td></tr></tfoot>
+      </table>
+      <div id="gauge" class="gauge" aria-hidden="true"><span class="band"></span><span class="mark"></span><span id="gauge-low" class="gauge-label gauge-low"></span><span id="gauge-high" class="gauge-label gauge-high"></span></div>
+      <p id="verdict" class="verdict" role="status"></p>
+      <h3>Le tre mete a confronto</h3>
+      <ul id="compare" class="compare"></ul>
+      <p id="compare-note" class="deep-note"></p>
+      <h3>Salva questo preventivo</h3>
+      <form id="quote-form" class="quote-form">
+        <div class="field">
+          <label for="quote-note">Una nota, se vuoi</label>
+          <input id="quote-note" type="text" maxlength="120" placeholder="Es. versione con due auto">
+        </div>
+        <button type="submit" class="btn btn-go">Salva il preventivo</button>
+      </form>
+      <p id="quote-status" class="deep-note" role="status"></p>
+      <h3>I preventivi salvati</h3>
+      <p id="quote-empty" class="deep-note">Ancora nessuno: salva il primo qui sopra.</p>
+      <ul id="quote-list" class="quote-list"></ul>
+      <p id="quotes-note" class="deep-note">Li vediamo tutti e quattro.</p>
+    </section>
+
+    <section id="obiezioni" class="section">
+      <h2>Le tre obiezioni oneste</h2>
+      <dl class="objections">
+        <div><dt>Costa troppo</dt><dd id="cost-objection"></dd></div>
+        <div><dt>Non ho ferie</dt><dd>Molte case si affittano solo da sabato a sabato. Arrivando il 27 febbraio e tornando la sera dell'ultimo giorno di sci, bastano 3 giorni di ferie per sciarne 4 e 4 per sciarne 5. L'annuncio di Val Thorens parte di domenica: lì serve un giorno in più. La data è una proposta.</dd></div>
+        <div><dt>Che fatica organizzare</dt><dd>Organizzo io. A te tocca una cosa sola: votare, e poi caricare gli sci in auto.</dd></div>
+      </dl>
+      <p class="hand">Se la risposta è no, è no. Nessuna multa e nessun processo nel gruppo.</p>
+    </section>
+
+    <section id="vota" class="section section-sky">
+      <h2>Chi sale in auto?</h2>
+      <div class="car">
+        <canvas id="car-canvas" aria-hidden="true"></canvas>
+        <svg id="car-art" class="car-art" xmlns="http://www.w3.org/2000/svg" width="400" height="460" viewBox="0 0 400 460" preserveAspectRatio="none" aria-hidden="true">
+          <rect width="400" height="460" fill="#dce8f2"/>
+          <path d="M6 70h26v84H6zM368 70h26v84h-26zM6 320h26v84H6zM368 320h26v84h-26z" fill="#10192b"/>
+          <path d="M84 8h232c40 0 62 26 62 70v314c0 42-22 62-60 62H82c-38 0-60-20-60-62V78C22 34 44 8 84 8z" fill="#2b4c7e"/>
+          <path d="M74 28c70-16 182-16 252 0l26 62c-90-16-214-16-304 0z" fill="#a9c6df"/>
+          <path d="M70 34c20-5 44-8 70-10l-22 58c-22 2-44 4-66 8z" fill="#f7f9fb" opacity=".55"/>
+          <path d="M60 420c80 12 200 12 280 0l-12 22c-80 8-176 8-256 0z" fill="#5c7fad"/>
+          <path d="M22 118l-18 8 2 26 20-10zM378 118l18 8-2 26-20-10z" fill="#1b3257"/>
+        </svg>
+        <ul id="seats" class="seats" aria-label="I quattro posti in auto"></ul>
+      </div>
+      <p id="votes-note" class="fine">Voti e posti li vediamo tutti e quattro.</p>
+      <div id="vote-results" class="vote-results" hidden>
+        <h3>Come sta andando</h3>
+        <ol id="vote-tally" class="vote-tally"></ol>
+        <ul id="vote-people" class="vote-people"></ul>
+      </div>
+      <div class="vote">
+        <p class="voter">Stai votando come <strong id="voter-name"></strong>.</p>
+        <button id="logout" type="button" class="btn btn-small btn-quiet">Non sei tu? Esci</button>
+        <p class="vote-label">Metti le mete nel tuo ordine</p>
+        <ol id="rank" class="rank"></ol>
+        <div class="vote-actions">
+          <button id="save-vote" type="button" class="btn btn-go">Ci sto, salva il voto</button>
+          <button id="save-pass" type="button" class="btn btn-quiet">Stavolta passo</button>
+        </div>
+        <p id="vote-status" class="status" role="status"></p>
+        <h3>Vuoi cambiare il piano?</h3>
+        <form id="proposal-form" class="proposal-form">
+          <div class="field">
+            <label for="proposal-text">La tua proposta</label>
+            <textarea id="proposal-text" rows="3" maxlength="500" placeholder="Es. partiamo un giorno prima"></textarea>
+          </div>
+          <button id="save-proposal" type="submit" class="btn">Salva la proposta</button>
+        </form>
+        <p id="proposal-status" class="status" role="status"></p>
+        <ul id="proposal-list" class="proposal-list"></ul>
+      </div>
+    </section>
+
+    <section id="parti" class="section">
+      <h2>Quando si parte</h2>
+      <p id="offline-status" class="status" role="status">Sto salvando l'app per quando non c'è segnale.</p>
+      <button id="install" type="button" class="btn btn-quiet" hidden>Aggiungi alla schermata Home</button>
+      <p class="fine">Su iPhone: Condividi, poi Aggiungi alla schermata Home. Da lì l'app ti chiederà il codice: lo trovi nel messaggio che hai ricevuto.</p>
+      <h3 id="route-title"></h3>
+      <ul id="route" class="route"></ul>
+      <p class="fine">In Francia e in Valle d'Aosta, d'inverno, servono gomme invernali o catene a bordo. Controlla sempre valichi e traforo prima di partire.</p>
+      <h3>Piste in tasca</h3>
+      <div id="map-dest" class="pills" role="group" aria-label="Scegli la meta della mappa"></div>
+      <div class="piste-frame"><canvas id="piste-map" role="img" aria-label="Tracciati delle piste, colorati per difficoltà"></canvas></div>
+      <ul class="piste-key" aria-label="Legenda delle piste"></ul>
+      <p id="piste-status" class="fine" role="status"></p>
+      <h3>Da non dimenticare</h3>
+      <ul id="checklist" class="checklist"></ul>
+    </section>
+    <section id="bar" class="bar">
+      <div class="bar-frame">
+      <canvas id="bar-canvas" aria-hidden="true"></canvas>
+      <svg id="bar-art" class="bar-scene" xmlns="http://www.w3.org/2000/svg" width="390" height="400" viewBox="0 0 390 400" role="img" aria-label="Una baita con le finestre accese in fondo a una pista rossa, con gli sci piantati nella neve">
+        <defs><radialGradient id="lamp"><stop offset="0" stop-color="#f2b84b" stop-opacity=".75"/><stop offset="1" stop-color="#f2b84b" stop-opacity="0"/></radialGradient></defs>
+        <rect width="390" height="400" fill="#1b3257"/>
+        <path d="M0 132 30 112l20 12 34-38 22 24 28-34 26 30 40-22 34 28 44-44 24 30 34-20 54 46v176H0z" fill="#2b4c7e"/>
+        <path d="M0 170 22 150l18 8 22-46 12 8 18-36 16 20 14-8 18 36 20-40 16-22 10-26 12 22 12-8 16 38 18 20 18-12 16 26 18-18 16-20 14 26 20 18 20-8 24 32v240H0z" fill="#3d659c"/>
+        <path d="M186 44l12 22 12-8 16 38 18 20-8 74-40 10-6-70zM92 84l16 20 14-8 18 36-12 58-36 10 6-70zM312 92l14 26 20 18-6 64-40 10 16-60z" fill="#2b4c7e" opacity=".75"/>
+        <path d="M186 44 198 66 210 58 220 84 208 78 204 98 194 84 186 108 178 86 166 100 170 78 160 92 176 70zM92 84 108 104 122 96 130 114 116 108 110 128 100 112 92 134 84 112 70 128 74 120zM312 92 326 118 346 136 332 130 326 148 316 130 308 150 300 126 284 134 296 112z" fill="#f7f9fb"/>
+        <path d="M0 260c90-40 180-54 390-30v170H0z" fill="#dce8f2"/>
+        <path d="M0 300c110-38 220-40 390-14v114H0z" fill="#f7f9fb"/>
+        <path d="M240 318c50-14 100-16 150-12v18c-50 0-96 2-150-6zM0 360c70-16 140-16 220-6-70 12-150 16-220 6z" fill="#c5d6e4"/>
+        <path d="M84 300v-74h126v74z" fill="#6b4a2f"/>
+        <path d="M84 226v74M104 226v74M124 226v74M170 226v74M190 226v74" stroke="#3f2a19" stroke-width="2"/>
+        <path d="M66 234 147 170l81 64z" fill="#3f2a19"/>
+        <path d="M60 234 147 164l87 70-14 4-73-58-73 58z" fill="#f7f9fb"/>
+        <ellipse cx="147" cy="262" rx="110" ry="74" fill="url(#lamp)"/>
+        <path d="M134 300v-44h28v44z" fill="#6b4a2f"/>
+        <path d="M96 246h26v24H96zM174 246h26v24h-26z" fill="#f2b84b"/>
+        <path d="M109 246v24M96 258h26M187 246v24M174 258h26" stroke="#3f2a19" stroke-width="2"/>
+        <path d="M0 340c40-10 100-6 148-36" fill="none" stroke="#c8202f" stroke-width="6" stroke-linecap="round"/>
+        <g transform="translate(40 4)" stroke-linecap="round"><path d="M244 312 262 226M268 312 250 226" stroke="#10192b" stroke-width="7"/>
+        <path d="M262 226l6-9M250 226l-6-9" stroke="#5c7fad" stroke-width="7"/></g>
+      </svg>
+      </div>
+      <div class="bar-copy">
+        <h2>Fine pista: il bar</h2>
+        <p class="hand">Da qui in poi l'unica decisione difficile è chi offre il primo giro.</p>
+        <p>Nessun bar è già prenotato, sia chiaro. Prima serve il tuo voto.</p>
+        <a class="btn btn-go" href="#vota">Torna a votare</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="section footer">
+    <h2>Da dove vengono i dati</h2>
+    <p>Stime controllate a novembre 2026. Verifica i prezzi prima di prenotare.</p>
+    <ul>
+      <li>Terreno: Mapzen Terrain Tiles su AWS Open Data.</li>
+      <li>Tracciati piste: © contributori di <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, licenza ODbL.</li>
+      <li>Skipass: <a href="https://guide-ski.fr/?p=682">guide-ski.fr</a>, schneehoehen.de per <a href="https://www.schneehoehen.de/skigebiete/preise/breuil-cervinia-valtournenche">Cervinia</a> e <a href="https://www.schneehoehen.de/skigebiete/preise/les-trois-vallees">3 Vallées</a>, <a href="https://www.les3vallees.com/en/ski-pass/solo-pass/">les3vallees.com</a>.</li>
+      <li>Case: <a href="https://www.papvacances.fr/annonce/location-appartement-l-alpe-d-huez-r209101036">Alpe d'Huez</a>, <a href="https://www.papvacances.fr/annonce/location-appartement-val-thorens-r202001817">Val Thorens</a>, <a href="https://www.casevacanza.it/casa-vacanze-breuil-cervinia">Cervinia</a>.</li>
+      <li>Carburante: <a href="https://www.borsaitaliana.it/borsa/notizie/teleborsa/economia/carburanti-prezzo-medio-self-benzina-a-2022-euroe-gasolio-a-2260-euro-63_2026-10-23_TLB.html?lang=it">Mimit via Borsa Italiana</a>. Pedaggi: <a href="https://calcolopercorso.it/it/distanza/Torino/Chatillon">calcolopercorso.it</a>, <a href="https://www.sitaf.it/en/tariffs-and-passes-a32/">A32</a> e <a href="https://www.sitaf.it/en/tariffs-and-passes/">Fréjus su sitaf.it</a>.</li>
+      <li>Distanze e tempi: <a href="https://project-osrm.org/">OSRM</a> su dati OpenStreetMap, senza traffico né neve, con un margine per l'inverno.</li>
+      <li>Dopo-sci: <a href="https://www.skiworld.co.uk/blog/ski-resorts-with-a-folie-douce/">skiworld.co.uk</a>, <a href="https://www.igluski.com/blog/post/cervinia-apres-bars-nightlife">igluski.com</a>.</li>
+    </ul>
+  </footer>
+
+  <nav id="bottom-nav" class="bottom-nav" aria-label="Sezioni">
+    <a href="#mete">Mete</a>
+    <a href="#conto">Conto</a>
+    <a href="#vota">Vota</a>
+    <a href="#parti">Parti</a>
+  </nav>
+
+  <script src="js/data.js"></script>
+  <script src="js/budget.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/painter.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

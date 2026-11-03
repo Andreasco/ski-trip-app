@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Test-only dependency: a real Postgres in-process, to run supabase/schema.sql.",
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.15"
+  }
+}

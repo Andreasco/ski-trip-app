@@ -1,0 +1,7 @@
+.impeccable/
+.claude/
+__pycache__/
+node_modules/
+discesa-codes.private.txt
+private/
+PRODUCT.md
