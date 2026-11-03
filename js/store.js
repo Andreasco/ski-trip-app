@@ -92,6 +92,10 @@ globalThis.store = (() => {
       await call("save_proposal", { p_text: text });
       await api.refresh();
     },
+    async deleteProposal(id) {
+      await call("delete_proposal", { p_id: id });
+      await api.refresh();
+    },
     async setProposalStatus(id, status) {
       await call("set_proposal_status", { p_id: id, p_status: status });
       await api.refresh();

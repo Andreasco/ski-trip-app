@@ -182,6 +182,18 @@ begin
 end;
 $$;
 
+create or replace function delete_proposal(p_code text, p_id uuid) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  me people := person_from_code(p_code);
+begin
+  delete from proposals where id = p_id and person = me.id;
+  if not found then
+    raise exception 'not_allowed';
+  end if;
+end;
+$$;
+
 create or replace function set_proposal_status(p_code text, p_id uuid, p_status text) returns void
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -257,10 +269,10 @@ $$;
 
 revoke all on function hash_code(text), person_from_code(text) from public, anon, authenticated;
 revoke all on function login(text), read_all(text), read_photo(text, text), save_quote(text, jsonb), delete_quote(text, uuid),
-  save_vote(text, text[], boolean), save_proposal(text, text), set_proposal_status(text, uuid, text),
+  save_vote(text, text[], boolean), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
   set_person(text, text, text, text, integer), set_past_trip(text, integer, text, numeric),
   save_photo(text, text, integer, text, integer, integer, integer, text, text) from public, authenticated;
 grant execute on function login(text), read_all(text), read_photo(text, text), save_quote(text, jsonb), delete_quote(text, uuid),
-  save_vote(text, text[], boolean), save_proposal(text, text), set_proposal_status(text, uuid, text),
+  save_vote(text, text[], boolean), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
   set_person(text, text, text, text, integer), set_past_trip(text, integer, text, numeric),
   save_photo(text, text, integer, text, integer, integer, integer, text, text) to anon;
