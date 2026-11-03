@@ -605,7 +605,7 @@
       gate.classList.add("is-open");
       document.documentElement.classList.remove("locked");
       $("#top h1").focus({ preventScroll: true });
-      await sleep(900);
+      await sleep(2200);
       gate.classList.remove("is-open");
       if (location.hash.length > 1) document.querySelector(location.hash)?.scrollIntoView();
     });
