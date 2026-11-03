@@ -749,9 +749,9 @@ function startServer(db, net) {
     if (SHOTS) {
       await js(`document.getElementById("gate-submit").click(); await $until(() => document.getElementById("gate-form").classList.contains("is-stamped")); await new Promise((r) => setTimeout(r, 300));`);
       await shot("g04-stamped");
-      await sleep(2950);
+      await sleep(3700);
       await shot("g05-turnstile-opening");
-      await sleep(1600);
+      await sleep(2600);
       await shot("g06-after-the-gate");
       await out();
       await go(`?per=bravo#k=${CODES.bravo}`);
@@ -760,7 +760,7 @@ function startServer(db, net) {
       document.getElementById("gate-submit").click();
       const t = performance.now();
       let stampedAt = 0; let openedAt = 0; let wish = "";
-      while (performance.now() - t < 5000) {
+      while (performance.now() - t < 6000) {
         if (!stampedAt && document.getElementById("gate-form").classList.contains("is-stamped")) { stampedAt = performance.now(); wish = document.getElementById("gate-submit").textContent; }
         if (!openedAt && gate.classList.contains("is-open")) openedAt = performance.now();
         seen.push({ stamped: document.getElementById("gate-form").classList.contains("is-stamped"), open: gate.classList.contains("is-open"), shown: getComputedStyle(gate).display !== "none" });
