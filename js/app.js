@@ -955,13 +955,15 @@
         status.textContent = "Il salvataggio offline non è riuscito: ricarica la pagina con la rete.";
       });
       navigator.serviceWorker.ready.then(() => {
-        status.textContent = "Salva l'app sul telefono: si apre anche senza segnale, tranne il volo 3D. Per votare e salvare preventivi serve la rete.";
+        status.textContent = "Puoi aggiungere l'app alla schermata Home: si apre anche senza segnale, tranne il volo 3D. Per votare e salvare preventivi serve la rete.";
       });
     }
     const install = $("#install");
     addEventListener("beforeinstallprompt", (event) => {
       event.preventDefault();
       install.hidden = false;
+      // The button does the job, so the manual steps for iPhone are not needed here.
+      $("#install-hint").hidden = true;
       install.onclick = () => {
         event.prompt();
         install.hidden = true;
