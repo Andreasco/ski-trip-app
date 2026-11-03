@@ -638,6 +638,14 @@ function startServer(db, net) {
     check("no duplicate ids", !markup.dupes.length, markup.dupes);
     check("every field has a label", !markup.unlabelled.length, markup.unlabelled);
     check("no dead anchors", !markup.dead.length, markup.dead);
+    const shownHidden = await js(`return [...document.querySelectorAll("[hidden]")].filter((e) => getComputedStyle(e).display !== "none").map((e) => e.id || e.className)`);
+    check("what is hidden stays hidden", !shownHidden.length, shownHidden);
+    // The test browser may really offer installation, so the starting state is set here.
+    const install = await js(`const b = document.getElementById("install"); b.hidden = true; const before = getComputedStyle(b).display;
+      window.dispatchEvent(new Event("beforeinstallprompt"));
+      const after = getComputedStyle(b).display; b.hidden = true;
+      return { before, after }`);
+    check("the install button shows only when the browser offers it", install.before === "none" && install.after !== "none", install);
 
     // Navigation and the remaining sections
     console.error(`[${Math.round(process.uptime())}s] Navigation and the remaining sections: ${passed} ok, ${failures.length} failed`);
@@ -738,7 +746,7 @@ function startServer(db, net) {
     if (SHOTS) {
       await js(`document.getElementById("gate-submit").click(); await $until(() => document.getElementById("gate-form").classList.contains("is-stamped")); await new Promise((r) => setTimeout(r, 300));`);
       await shot("g04-stamped");
-      await sleep(350);
+      await sleep(1150);
       await shot("g05-turnstile-opening");
       await sleep(1600);
       await shot("g06-after-the-gate");
@@ -748,11 +756,15 @@ function startServer(db, net) {
     const opening = await js(`const gate = document.getElementById("gate"); const seen = [];
       document.getElementById("gate-submit").click();
       const t = performance.now();
-      while (performance.now() - t < 2200) {
+      let stampedAt = 0; let openedAt = 0; let wish = "";
+      while (performance.now() - t < 3200) {
+        if (!stampedAt && document.getElementById("gate-form").classList.contains("is-stamped")) { stampedAt = performance.now(); wish = document.getElementById("gate-submit").textContent; }
+        if (!openedAt && gate.classList.contains("is-open")) openedAt = performance.now();
         seen.push({ stamped: document.getElementById("gate-form").classList.contains("is-stamped"), open: gate.classList.contains("is-open"), shown: getComputedStyle(gate).display !== "none" });
         await new Promise((r) => setTimeout(r, 60));
       }
-      return { stamped: seen.some((s) => s.stamped), opened: seen.some((s) => s.open), gone: !seen[seen.length - 1].shown, locked: document.documentElement.classList.contains("locked") }`);
+      return { stamped: seen.some((s) => s.stamped), opened: seen.some((s) => s.open), gone: !seen[seen.length - 1].shown, locked: document.documentElement.classList.contains("locked"), wish, held: Math.round(openedAt - stampedAt) }`);
+    check("the wish stays long enough to read", opening.wish === "Buona discesa" && opening.held >= 1000, opening);
     check("the stamp, then the turnstile, then the page", opening.stamped && opening.opened && opening.gone && !opening.locked, opening);
     await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
 

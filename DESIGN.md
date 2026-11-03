@@ -387,7 +387,7 @@ What a visitor meets before anything else: the painted mountain, a paper skipass
 - **Turnstile:** two wooden posts with ink readers and two arms in ink and sky bands, painted at runtime with a rough brush, meeting in the middle.
 - **Stamp:** "Valido" in Bowlby One, deep with a double rule, rotated 9 degrees, with its ink multiplied onto the paper and broken up by a painted speckle. It is never red: the Piste Code Rule holds.
 - **Hand note:** a personal link also shows that friend's own line. It goes when the skipass is stamped, because the page repeats it.
-- **The gesture:** the stamp slams down fast, the arms swing away after about .4s, the skipass rises off the screen, and the cartouche and post settle in. Under reduced motion the page simply opens.
+- **The gesture:** the stamp slams down fast, the arms swing away after about 1.2s, once the stamp and the wish can be read, the skipass rises off the screen, and the cartouche and post settle in. Under reduced motion the page simply opens.
 - **Errors:** a sentence naming the problem and the way out, with the field's dashed ink mark. A code from a personal link leaves the address bar before anything is drawn.
 
 ### Trail Disc and Piste Key
