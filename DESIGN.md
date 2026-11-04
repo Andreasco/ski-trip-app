@@ -253,7 +253,7 @@ Motion belongs to the paint and to one gesture. The panorama lays its strokes do
 - Physical components with material grain rather than generic cards.
 - Three typefaces with strict jobs: sign painter, data, hand note.
 - Flat tonal bands, with a single floating sheet.
-- Rasters in `icons/` carry their origin embedded: `og.jpg` is a capture of the page's own hero, the PNG icons come from `icon.svg`.
+- Rasters in `icons/` carry their origin embedded: `og.jpg` is a capture of the page's own gate, the PNG icons come from `icon.svg`.
 
 ## Colors
 
@@ -366,7 +366,8 @@ Blunt and thumb-sized.
 There is no generic card. Content sits on bands, on a plate, or in a purpose-built object.
 - **Cartouche:** snow with painted paper fibre, 4px double ink rule, the only shadow. Holds title, hand note and offer. Maximum 34rem.
 - **Ledger:** snow rows on the deep band, 1px sky hairlines, right-aligned bold figures, source tags beneath each label, closing on an ink total row in Bowlby One.
-- **Facts:** two-column definition grid between 2px ink rules.
+- **Facts:** two-column definition grid between 2px ink rules. The last fact holds the owner's two ratings, at equal weight.
+- **Venues:** after the facts, a heading, a plain list where each venue's name is its source link, and one sentence on how the evening works.
 - **Past Trips:** done years are paper tags with the 4px double ink rule; the open year is a deep board with grain, cut to the same 24px arrow as the signs.
 
 ### Inputs / Fields

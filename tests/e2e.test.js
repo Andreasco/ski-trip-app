@@ -28,7 +28,7 @@ const PEOPLE = Object.fromEntries(Object.keys(CODES).map((id) => {
 const TRIPS = [[2025, "Luogo Uno", 600], [2026, "Luogo Due", 450]];
 const HIGH = 600;
 // A lodging for three nights at each destination.
-const HOUSES = { thorens: 900, alpe: 480, serre: 600, cervinia: 620 };
+const HOUSES = { thorens: 900, tignes: 360, alpe: 480, serre: 600 };
 // The smallest valid WebP, 1x1.
 const PIXEL = "UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -277,7 +277,7 @@ function startServer(db, net) {
   }
   await refused("a code is not a pattern", () => rpc(db, "login", { p_code: "' or 1=1 --" }), "bad_code");
   check("a code works typed by hand", (await rpc(db, "login", { p_code: "test-3333 " })).person === "bravo");
-  const goodQuote = { note: "", dest: "alpe", days: 4, passOption: false, people: 4, cars: 1, km: 380, consumption: 7, fuelPrice: 2.02, tolls: 26, flatTotal: 1342, pass: 243, foodPerDay: 35, extras: 0 };
+  const goodQuote = { note: "", dest: "alpe", days: 4, people: 4, cars: 1, km: 380, consumption: 7, fuelPrice: 2.02, tolls: 26, flatTotal: 1342, pass: 243, foodPerDay: 35, extras: 0 };
   for (const [what, change] of [["0 people", { people: 0 }], ["half a person", { people: 1.5 }], ["no cars", { cars: 0 }], ["negative km", { km: -1 }], ["NaN km", { km: "NaN" }], ["infinite tolls", { tolls: "Infinity" }], ["a long note", { note: "x".repeat(121) }], ["no destination", { dest: "" }], ["text as a number", { pass: "abc" }], ["a missing value", { extras: null }], ["0 days", { days: 0 }]]) {
     await refused(`a quote with ${what} is refused`, () => rpc(db, "save_quote", { p_code: CODES.bravo, p_quote: { ...goodQuote, ...change } }));
   }
@@ -471,7 +471,20 @@ function startServer(db, net) {
     const cheapest = TRIP.destinations.map((d) => ({ d, total: expected(d, 4) })).sort((a, b) => a.total - b.total)[0];
     const heroCost = await js(`return $t("#hero-cost")`);
     check("hero offer states the cheapest quote", heroCost.includes(euro(cheapest.total)) && heroCost.includes(cheapest.d.at), heroCost);
-    check("destinations run from the black down", TRIP.destinations.map((d) => d.grade).join() === "black,red,blue,green" && (await js(`return [...document.querySelectorAll("#dest-list h3")].map((h) => h.textContent.trim()).join()`)) === TRIP.destinations.map((d) => d.name).join());
+    check("destinations run from the black down", TRIP.destinations.map((d) => d.grade).join() === "black,red,blue,green" && (await js(`return [...document.querySelectorAll("#dest-list h3")].map((h) => h.textContent.trim().replace(/\u00a0/g, " ")).join()`)) === TRIP.destinations.map((d) => d.name).join());
+
+    const cards = await js(`return Object.fromEntries([...document.querySelectorAll(".dest")].map((c) => [c.id, { facts: c.querySelector(".facts").innerText, venues: [...c.querySelectorAll(".venues a")].map((a) => [a.textContent, a.href, a.rel]), text: c.textContent }]))`);
+    TRIP.destinations.forEach((d) => {
+      const card = cards[d.id];
+      check(`${d.id} shows its venues, each with a link`, card.venues.map(([name]) => name).join() === d.apres.venues.map((v) => v.name).join() && card.venues.every(([, href, rel]) => href.startsWith("https://") && rel === "noopener"), card.venues);
+      check(`${d.id} says how the evening works`, card.text.includes("Come si fa après-ski") && card.text.includes(d.apres.how), d.id);
+      const vote = (n) => `${String(n).replace(".", ",")}/10`;
+      check(`${d.id} shows both ratings`, card.facts.includes(`Sci ${vote(d.ratings.ski)}`) && card.facts.includes(`Après-ski ${vote(d.ratings.apres)}`), card.facts);
+    });
+    check("half points read in Italian", cards.tignes.facts.includes("Sci 9,5/10") && cards.alpe.facts.includes("Après-ski 8,5/10"), cards.tignes.facts);
+    const dated = await js(`return document.documentElement.outerHTML`);
+    check("the new dates are on the page, the old ones nowhere", dated.includes("Dal 4 al 7 febbraio 2027") && !/18 al 21|Cervin|Zermatt|Orelle/.test(dated), dated.match(/.{30}(18 al 21|Cervin|Zermatt|Orelle).{30}/)?.[0]);
+    check("nothing of the removed pass option is left", await js(`return !document.getElementById("pass-option")`));
 
     // Calculator
     console.error(`[${Math.round(process.uptime())}s] Calculator: ${passed} ok, ${failures.length} failed`);
@@ -499,22 +512,11 @@ function startServer(db, net) {
     }
     await js(`document.getElementById("budget-reset").click(); $set("people", "1");`);
     check("singular person in the caption", (await js(`return $t("#ledger-caption")`)).includes("1 persona"));
-    await js(`document.getElementById("budget-reset").click(); $pick("dest", "cervinia");`);
-    check("Zermatt option shows for Cervinia", await js(`return !document.getElementById("pass-option").hidden`));
-    await js(`document.getElementById("pass-option-input").click();`);
-    const cerv = dest("cervinia");
-    check("Zermatt adds to the pass", (await total()) === euro(expected(cerv, 4, { pass: cerv.passOption.prices[4] })), await total());
-    await js(`$pick("days", "5");`);
-    check("Zermatt reprices with days", (await total()) === euro(expected(cerv, 5, { pass: cerv.passOption.prices[5] })), await total());
-    await js(`$pick("dest", "alpe");`);
-    check("Zermatt option hides elsewhere", await js(`return document.getElementById("pass-option").hidden`));
-    await js(`$pick("dest", "cervinia");`);
-    check("Zermatt resets on switching", (await total()) === euro(expected(cerv, 5)), await total());
     await js(`document.getElementById("budget-reset").click(); $pick("dest", "alpe"); $set("km", "100"); $pick("dest", "thorens");`);
     check("a typed km stays with its destination", (await js(`return document.getElementById("km").value`)) === String(dest("thorens").trip.km));
     await js(`document.getElementById("budget-reset").click();`);
     check("verdict above budget", (await js(`return $t("#verdict")`)).includes("sopra"));
-    await js(`$pick("dest", "cervinia");`);
+    await js(`$pick("dest", "tignes");`);
     check("verdict within the band", (await js(`return $t("#verdict")`)).includes("dentro la fascia"), await js(`return $t("#verdict")`));
     await js(`$set("people", "2");`);
     check("the comparison stays published while the calculator changes", (await js(`return $t("#compare strong")`)) === euro(expected(TRIP.destinations[0], 4)), await js(`return $t("#compare strong")`));
@@ -524,7 +526,7 @@ function startServer(db, net) {
     console.error(`[${Math.round(process.uptime())}s] Quotes, shared between people: ${passed} ok, ${failures.length} failed`);
     await login("bravo");
     const pending = await js(`document.getElementById("quote-note").value = '<img src=x onerror="window.__xss=1">';
-      $pick("dest", "cervinia"); $pick("days", "5"); document.getElementById("pass-option-input").click(); $set("cars", "2"); $set("km", "300");
+      $pick("dest", "tignes"); $pick("days", "5"); $set("cars", "2"); $set("km", "300");
       const b = document.querySelector("#quote-form button"); const f = document.getElementById("quote-form");
       f.requestSubmit(); f.requestSubmit();
       const busy = { disabled: b.disabled, label: b.textContent };
@@ -537,13 +539,14 @@ function startServer(db, net) {
     check("returning to the app keeps the published hero", (await js(`return $t("#hero-cost")`)) === heroCost);
     check("the signs keep the published range", (await js(`return $t(".sign-data")`)) === signs[0].trim(), await js(`return $t(".sign-data")`));
     check("a double tap saves once", (await db.query("select 1 from quotes")).rows.length === 1, (await db.query("select count(*) from quotes")).rows);
-    const savedTotal = euro(expected(cerv, 5, { pass: cerv.passOption.prices[5], cars: 2, km: 300 }));
+    const tig = dest("tignes");
+    const savedTotal = euro(expected(tig, 5, { cars: 2, km: 300 }));
     check("a quote is saved with its total", (await js(`return $t(".quote-total")`)) === savedTotal, await js(`return $t(".quote-total")`));
     check("a quote note is escaped", await js(`return !window.__xss && !document.querySelector("#quote-list img")`));
     check("the note field empties", (await js(`return document.getElementById("quote-note").value`)) === "");
     check("the author can delete it", await js(`return !!document.querySelector("[data-delete]")`));
     await login("charlie");
-    check("another person sees the quote", (await js(`return $t("#quote-list strong")`)).startsWith("Bravo: Cervinia, 5 giorni"), await js(`return $t("#quote-list strong")`));
+    check("another person sees the quote", (await js(`return $t("#quote-list strong")`)).startsWith("Bravo: Tignes / Val d'Isère, 5 giorni"), await js(`return $t("#quote-list strong")`));
     check("the same total for everyone", (await js(`return $t(".quote-total")`)) === savedTotal);
     check("only the author can delete", await js(`return !document.querySelector("[data-delete]")`));
     await js(`document.getElementById("quote-list").scrollIntoView({ block: "center" });`);
@@ -551,9 +554,9 @@ function startServer(db, net) {
     await shot("g10-saved-quote-seen-by-another");
     await js(`document.querySelector("[data-open]").click(); await new Promise((r) => setTimeout(r, 100));`);
     check("anyone can reopen it", (await total()) === savedTotal, await total());
-    check("reopen restores the fields", await js(`return document.getElementById("cars").value === "2" && document.getElementById("km").value === "300" && document.getElementById("pass-option-input").checked && document.querySelector('input[name="days"]:checked').value === "5"`));
+    check("reopen restores the fields", await js(`return document.getElementById("cars").value === "2" && document.getElementById("km").value === "300" && document.querySelector('input[name="days"]:checked').value === "5"`));
     await js(`$pick("days", "4");`);
-    check("a reopened quote reprices by days", (await total()) === euro(expected(cerv, 4, { pass: cerv.passOption.prices[4], cars: 2, km: 300 })), await total());
+    check("a reopened quote reprices by days", (await total()) === euro(expected(tig, 4, { cars: 2, km: 300 })), await total());
     await login("bravo");
     await js(`document.querySelector("[data-delete]").click(); await $until(() => !document.querySelector("#quote-list li"));`);
     check("delete empties the list", await js(`return !document.querySelector("#quote-list li") && !document.getElementById("quote-empty").hidden`));
@@ -709,35 +712,35 @@ function startServer(db, net) {
     await login("alfa");
     check("no results before the first vote", await js(`return document.getElementById("vote-results").hidden`));
     check("a first vote starts from the default order", JSON.stringify(await js(`return $rank()`)) === JSON.stringify(base));
-    for (let i = 0; i < 3; i++) await js(`document.querySelector('[data-move="cervinia"][data-by="-1"]').click();`);
-    check("arrows reorder", (await js(`return $rank()`))[0] === "Cervinia");
-    check("the first row cannot go higher", await js(`return document.querySelector('[data-move="cervinia"][data-by="-1"]').disabled`));
+    for (let i = 0; i < 3; i++) await js(`document.querySelector('[data-move="serre"][data-by="-1"]').click();`);
+    check("arrows reorder", (await js(`return $rank()`))[0] === "Serre Chevalier");
+    check("the first row cannot go higher", await js(`return document.querySelector('[data-move="serre"][data-by="-1"]').disabled`));
     await js(`document.getElementById("save-vote").click(); await $until(() => $t("#vote-status"));`);
     check("the vote is confirmed", (await js(`return $t("#vote-status")`)).includes("Voto salvato"));
     const tally = () => js(`return [...document.querySelectorAll("#vote-tally li")].map((l) => l.innerText.replace(/\\s+/g, " "))`);
-    check("first choice scores 4", (await tally())[0] === "Cervinia 4 punti", await tally());
+    check("first choice scores 4", (await tally())[0] === "Serre Chevalier 4 punti", await tally());
     await js(`document.querySelector('[data-move="alpe"][data-by="-1"]').click();`);
     check("moving after saving clears the confirmation", (await js(`return $t("#vote-status")`)) === "");
     await login("bravo");
     check("a new voter never inherits an order", JSON.stringify(await js(`return $rank()`)) === JSON.stringify(base), await js(`return $rank()`));
-    check("others' votes are visible", (await tally())[0] === "Cervinia 4 punti", await tally());
+    check("others' votes are visible", (await tally())[0] === "Serre Chevalier 4 punti", await tally());
     await js(`document.getElementById("save-pass").click(); await $until(() => $t("#vote-status"));`);
     check("a pass is confirmed", (await js(`return $t("#vote-status")`)).includes("stavolta passi"));
-    check("a pass scores nothing", (await tally())[0] === "Cervinia 4 punti", await tally());
+    check("a pass scores nothing", (await tally())[0] === "Serre Chevalier 4 punti", await tally());
     check("a pass shows on the seat", (await js(`return [...document.querySelectorAll("#seats li")].find((l) => l.textContent.includes("Bravo")).textContent`)).includes("Stavolta passa"));
     await login("charlie");
     await js(`document.getElementById("save-vote").click(); await $until(() => $t("#vote-status"));`);
     await js(`document.getElementById("vota").scrollIntoView(); await $until(() => document.getElementById("car-canvas").dataset.painted, 8000); await new Promise((r) => setTimeout(r, 900));`);
     await shot("g11-car-and-tally");
-    check("votes add up", JSON.stringify(await tally()) === JSON.stringify(["Val Thorens / Orelle 7 punti", "Alpe d'Huez 5 punti", "Cervinia 5 punti", "Serre Chevalier 3 punti"]), await tally());
+    check("votes add up", JSON.stringify(await tally()) === JSON.stringify(["Val Thorens / 3 Vallées 7 punti", "Tignes / Val d'Isère 5 punti", "Serre Chevalier 5 punti", "Alpe d'Huez 3 punti"]), await tally());
     await login("alfa");
-    check("a voter finds their own ranking", (await js(`return $rank()`))[0] === "Cervinia", await js(`return $rank()`));
+    check("a voter finds their own ranking", (await js(`return $rank()`))[0] === "Serre Chevalier", await js(`return $rank()`));
     await js(`document.getElementById("save-vote").click(); await $until(() => $t("#vote-status"));`);
-    await rpc(db, "save_vote", { p_code: CODES.alfa, p_ranking: ["cervinia", "alpe", "thorens"], p_attending: true });
+    await rpc(db, "save_vote", { p_code: CODES.alfa, p_ranking: ["serre", "alpe", "thorens"], p_attending: true });
     await go();
     const oldVote = await js(`await $until(() => $t("#vote-status").includes("manca")); return { rank: $rank(), status: $t("#vote-status"), people: $t("#vote-people") + [...document.querySelectorAll("#vote-people li")].map((l) => l.textContent).join() }`);
-    check("a vote from before a destination was added keeps its order", oldVote.rank.join() === "Cervinia,Alpe d'Huez,Val Thorens / Orelle,Serre Chevalier", oldVote);
-    check("and says what is missing", oldVote.status.includes("manca Serre Chevalier") && oldVote.people.includes("(manca Serre Chevalier)"), oldVote);
+    check("a vote from before a destination was added keeps its order", oldVote.rank.join() === "Serre Chevalier,Alpe d'Huez,Val Thorens / 3 Vallées,Tignes / Val d'Isère", oldVote);
+    check("and says what is missing", oldVote.status.includes("manca Tignes / Val d'Isère") && oldVote.people.includes("(manca Tignes / Val d'Isère)"), oldVote);
     check("voting again replaces the vote", (await db.query("select 1 from votes where person = 'alfa'")).rows.length === 1);
     await js(`document.querySelector('[data-move="alpe"][data-by="-1"]').click();`);
     const moved = await js(`return $rank()`);
@@ -877,6 +880,15 @@ function startServer(db, net) {
         await settle();
         await shot(`g14-plate-${d.id}`);
       }
+      await js(`document.querySelector("#tignes .facts").scrollIntoView();`);
+      await settle();
+      await shot("g20-venues-tignes");
+      await js(`document.querySelector("#serre .apres-title").scrollIntoView(); scrollBy(0, -80);`);
+      await settle();
+      await shot("g21-venues-serre");
+      await js(`document.querySelector("#thorens .apres-title").scrollIntoView(); scrollBy(0, -80);`);
+      await settle();
+      await shot("g22-venues-thorens");
       await js(`document.getElementById("house-form").scrollIntoView(); scrollBy(0, -110);`);
       await settle();
       await shot("g15-house-form");
@@ -946,12 +958,12 @@ function startServer(db, net) {
     await send("Emulation.setEmulatedMedia", { features: [] });
     await go();
     const race = await js(`document.getElementById("map").scrollIntoView(); document.querySelector('[data-flight="alpe"]').click();
-      await new Promise((r) => setTimeout(r, 3000)); document.querySelector('[data-flight="cervinia"]').click();
+      await new Promise((r) => setTimeout(r, 3000)); document.querySelector('[data-flight="tignes"]').click();
       const t = performance.now(); const b = document.getElementById("flight-start");
       await new Promise((r) => setTimeout(r, 200));
       while (b.disabled && performance.now() - t < 40000) await new Promise((r) => setTimeout(r, 200));
       return { status: $t("#flight-status"), button: b.textContent, disabled: b.disabled, pressed: document.querySelector('[data-flight][aria-pressed="true"]').dataset.flight, ms: Math.round(performance.now() - t) }`);
-    check("changing destination mid-flight ends on the new one", race.pressed === "cervinia" && race.button.includes("Cervinia") && !race.disabled, race);
+    check("changing destination mid-flight ends on the new one", race.pressed === "tignes" && race.button.includes("Tignes") && !race.disabled, race);
 
     // The full gate animation, with motion on
     console.error(`[${Math.round(process.uptime())}s] The full gate animation, with motion on: ${passed} ok, ${failures.length} failed`);

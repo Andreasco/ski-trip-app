@@ -9,7 +9,7 @@
   <meta property="og:type" content="website">
   <meta property="og:locale" content="it_IT">
   <meta property="og:title" content="La Discesa 2027">
-  <meta property="og:description" content="Quattro sciatori, quattro mete e un conto onesto. Dal 18 al 21 febbraio, da Torino in auto: tocca a te scegliere.">
+  <meta property="og:description" content="Quattro sciatori, quattro mete e un conto onesto. Dal 4 al 7 febbraio, da Torino in auto: tocca a te scegliere.">
   <meta property="og:url" content="https://andreasco.github.io/ski-trip-app/">
   <meta property="og:image" content="https://andreasco.github.io/ski-trip-app/icons/og.jpg">
   <meta property="og:image:width" content="1200">
@@ -30,7 +30,7 @@
     <form id="gate-form" class="skipass" novalidate>
       <h2>Skipass 2027</h2>
       <p id="gate-name" class="skipass-name" hidden></p>
-      <p class="skipass-valid">La Discesa, dal 18 al 21 febbraio 2027, da Torino.</p>
+      <p class="skipass-valid">La Discesa, dal 4 al 7 febbraio 2027, da Torino.</p>
       <p id="gate-line" class="hand skipass-line" hidden></p>
       <div id="gate-field" class="field">
         <label for="gate-code">Il codice del tuo skipass</label>
@@ -49,11 +49,11 @@
   <svg id="rail" aria-hidden="true"><path/><circle r="6"/></svg>
 
   <header id="top" class="hero">
-    <canvas id="hero-canvas" role="img" aria-label="Panorama dipinto del Cervino e di Cervinia"></canvas>
+    <canvas id="hero-canvas" role="img" aria-label="Panorama dipinto della Grande Motte e di Tignes"></canvas>
     <div class="cartouche">
       <h1 tabindex="-1">Quattro sciatori, una discesa da scegliere</h1>
       <p id="personal" class="hand">Ho fatto i conti e disegnato le piste. A te restano solo le gambe.</p>
-      <p class="offer">Dal 18 al 21 febbraio 2027, da Torino in auto, 4 giorni di sci. <span id="hero-cost"></span></p>
+      <p class="offer">Dal 4 al 7 febbraio 2027, da Torino in auto, 4 giorni di sci. <span id="hero-cost"></span></p>
     </div>
     <nav class="post" aria-label="Le quattro mete">
       <div id="signs"></div>
@@ -75,12 +75,12 @@
     <section id="mete" class="section section-flush">
       <div class="section-head">
         <h2>Quattro piste, quattro difficoltà</h2>
-        <p class="legend">Il colore è il mio giudizio sul viaggio: la nera ha i pedaggi più cari, la rossa il tragitto più lungo, blu e verde stanno a circa 2 ore, e la verde senza confini da passare.</p>
+        <p class="legend">Il colore è il mio giudizio sul viaggio: la nera ha lo skipass più caro, la rossa il tragitto più lungo, la blu lo skipass meno caro, la verde il tragitto più corto.</p>
         <p class="fine">Le linee sui panorami seguono il codice delle piste:</p>
         <ul class="piste-key" aria-label="Legenda delle piste"></ul>
       </div>
       <div id="dest-list"></div>
-      <p class="fine">Panorami dipinti via codice su dati di elevazione reali: illustrazioni, non in scala.</p>
+      <p class="fine">I voti sono miei, non ufficiali: pensati per chi vuole sciare tutto il giorno e trovare movimento dopo. Panorami dipinti via codice su dati di elevazione reali: illustrazioni, non in scala.</p>
     </section>
 
     <section id="volo" class="section section-sky">
@@ -108,7 +108,6 @@
           <label class="choice"><input type="radio" name="days" value="5">5 giorni</label>
         </fieldset>
         <div id="budget-fields" class="budget-fields"></div>
-        <label id="pass-option" class="check" hidden><input id="pass-option-input" type="checkbox"><span id="pass-option-label"></span></label>
         <button id="budget-reset" type="button" class="btn btn-quiet">Riporta ai valori iniziali</button>
       </form>
       <table class="ledger">
@@ -178,7 +177,7 @@
       <h2>Ok sì, ma...</h2>
       <dl class="objections">
         <div><dt>Costa troppo</dt><dd id="cost-objection"></dd></div>
-        <div><dt>Non ho ferie</dt><dd>Dal 18 al 21 febbraio è da giovedì a domenica: partendo presto e tornando la domenica sera, bastano 2 giorni di ferie per 4 giorni di sci. La data è una proposta.</dd></div>
+        <div><dt>Non ho ferie</dt><dd>Dal 4 al 7 febbraio è da giovedì a domenica: partendo presto e tornando la domenica sera, bastano 2 giorni di ferie per 4 giorni di sci. La data è una proposta.</dd></div>
         <div><dt>Che fatica organizzare</dt><dd>Organizzo io. A te tocca una cosa sola: votare, e poi caricare gli sci in auto.</dd></div>
       </dl>
       <p class="hand">Se la risposta è no, è no. Nessuna multa e nessun processo nel gruppo.</p>
@@ -284,11 +283,11 @@
     <ul>
       <li>Terreno: Mapzen Terrain Tiles su AWS Open Data.</li>
       <li>Tracciati piste: © contributori di <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, licenza ODbL.</li>
-      <li>Skipass: guide-ski.fr per <a href="https://guide-ski.fr/?p=682">Alpe d'Huez</a> e <a href="https://guide-ski.fr/?p=626">Val Thorens</a>, <a href="https://booking.serre-chevalier.com/buy-your-serre-chevalier-ski-pass.html">Serre Chevalier</a>, schneehoehen.de per <a href="https://www.schneehoehen.de/skigebiete/preise/breuil-cervinia-valtournenche">Cervinia</a> e <a href="https://www.schneehoehen.de/skigebiete/preise/les-trois-vallees">3 Vallées</a>, <a href="https://www.les3vallees.com/en/ski-pass/solo-pass/">les3vallees.com</a>.</li>
+      <li>Skipass: siti ufficiali di <a href="https://www.les3vallees.com/en/skipass/adult-1-day-solo-pass">3 Vallées</a>, <a href="https://www.valdisere.com/it/val-disere-in-inverno/sci-e-snowboard/acquista-il-mio-pacchetto/">Tignes e Val d'Isère</a> e <a href="https://skipass.alpedhuez.com/en/winter/lift-pass/daily-ski-pass/">Alpe d'Huez</a>. Per Serre Chevalier <a href="https://skipassadvisor.com/en/station/serre-chevalier">skipassadvisor.com</a>, che riporta il listino ufficiale.</li>
       <li>Alloggi: inseriti da noi, con il loro annuncio.</li>
-      <li>Carburante: <a href="https://www.borsaitaliana.it/borsa/notizie/teleborsa/economia/carburanti-prezzo-medio-self-benzina-a-2022-euroe-gasolio-a-2260-euro-63_2026-10-23_TLB.html?lang=it">Mimit via Borsa Italiana</a>. Pedaggi: <a href="https://calcolopercorso.it/it/distanza/Torino/Chatillon">calcolopercorso.it</a>, <a href="https://www.sitaf.it/en/tariffs-and-passes-a32/">A32</a> e <a href="https://www.sitaf.it/en/tariffs-and-passes/">Fréjus su sitaf.it</a>.</li>
+      <li>Carburante: <a href="https://www.borsaitaliana.it/borsa/notizie/teleborsa/economia/carburanti-prezzo-medio-self-benzina-a-2022-euroe-gasolio-a-2260-euro-63_2026-10-23_TLB.html?lang=it">Mimit via Borsa Italiana</a>. Pedaggi 2026: <a href="https://www.sitaf.it/tariffe-e-abbonamenti-a32/">A32</a> e <a href="https://www.sitaf.it/tariffe-e-abbonamenti-t4/">Fréjus su sitaf.it</a>, <a href="https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053417592">A43 su Légifrance</a>. L'A430 è una mia stima da <a href="https://fr.mappy.com/itineraire/73300-saint-jean-de-maurienne/73200-albertville">Mappy</a>.</li>
       <li>Distanze e tempi: <a href="https://project-osrm.org/">OSRM</a> su dati OpenStreetMap, senza traffico né neve, con un margine per l'inverno.</li>
-      <li>Après-ski: <a href="https://www.skiworld.co.uk/blog/ski-resorts-with-a-folie-douce/">skiworld.co.uk</a>, <a href="https://www.igluski.com/blog/post/cervinia-apres-bars-nightlife">igluski.com</a>, <a href="https://snowcarbon.co.uk/ski-resorts/serre-chevalier/restaurants-apres-ski-nightlife">snowcarbon.co.uk</a>.</li>
+      <li>Après-ski: i link di ogni locale, nella scheda della meta. Orari e serate possono cambiare: ricontrolla la settimana prima. Navette: <a href="https://lesmenuires.com/en/shuttle-bus">lesmenuires.com</a> e <a href="https://www.valthorens.com/app/uploads/2023/09/navette-vallee-23-24.pdf">orario 2023/24 di Val Thorens</a>.</li>
     </ul>
   </footer>
 

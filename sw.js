@@ -1,5 +1,5 @@
 // Bump on every release so old caches are replaced.
-const VERSION = "discesa-v45";
+const VERSION = "discesa-v46";
 
 const SHELL = [
   "./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/og.jpg",
@@ -7,7 +7,7 @@ const SHELL = [
   "fonts/Barlow-400.woff2", "fonts/Barlow-600.woff2", "fonts/Barlow-800.woff2", "fonts/BowlbyOne-400.woff2", "fonts/ShantellSans-500.woff2",
   "vendor/maplibre-gl.js", "vendor/maplibre-gl.css",
 ];
-const DEM = { alpe: [1058, 735], thorens: [1061, 734], cervinia: [1067, 729], serre: [1061, 737] };
+const DEM = { alpe: [1058, 735], thorens: [1061, 734], tignes: [1063, 733], serre: [1061, 737] };
 const OPTIONAL = Object.entries(DEM).flatMap(([id, [cx, cy]]) => [
   `data/pistes-${id}.geojson`,
   ...[-1, 0, 1].flatMap((dx) => [-1, 0, 1].map((dy) => `data/dem/${id}/${cx + dx}_${cy + dy}.png`)),
