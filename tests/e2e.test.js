@@ -468,10 +468,13 @@ function startServer(db, net) {
     await js(`$pick("days", "4");`);
     const compare = await js(`return [...document.querySelectorAll("#compare strong")].map((e) => e.textContent)`);
     TRIP.destinations.forEach((d, i) => check(`compare ${d.id}`, compare[i] === euro(expected(d, 4)), compare[i]));
+    const bought = await js(`return [...document.querySelectorAll("#compare small")].map((e) => e.textContent)`);
+    TRIP.destinations.forEach((d, i) => check(`compare ${d.id} shows what the price buys`, bought[i] === `${d.km} km di piste`, bought[i]));
     const objection = await js(`return $t("#cost-objection")`);
     const totals = TRIP.destinations.map((d) => expected(d, 4));
     check("objection states the range", objection.includes(`da ${euro(Math.min(...totals))} a ${euro(Math.max(...totals))} a testa`), objection);
     check("objection names what goes over", objection.includes(`solo ${TRIP.destinations[0].name}`), objection);
+    check("objection states the cost per day", objection.includes(`da ${euro(Math.min(...totals) / 4)} a ${euro(Math.max(...totals) / 4)} per ogni giorno`), objection);
     const cheapest = TRIP.destinations.map((d) => ({ d, total: expected(d, 4) })).sort((a, b) => a.total - b.total)[0];
     const heroCost = await js(`return $t("#hero-cost")`);
     check("hero offer states the cheapest quote", heroCost.includes(euro(cheapest.total)) && heroCost.includes(cheapest.d.at), heroCost);
@@ -481,7 +484,7 @@ function startServer(db, net) {
     TRIP.destinations.forEach((d) => {
       const card = cards[d.id];
       check(`${d.id} shows its venues, each with a link`, card.venues.map(([name]) => name).join() === d.apres.venues.map((v) => v.name).join() && card.venues.every(([, href, rel]) => href.startsWith("https://") && rel === "noopener"), card.venues);
-      check(`${d.id} states the pros before the cons`, card.text.indexOf(`I pro: ${d.upside}`) > 0 && card.text.indexOf(`I pro: ${d.upside}`) < card.text.indexOf(`I contro: ${d.downside}`), d.id);
+      check(`${d.id} leads with the pros and keeps the caveats for last`, d.pros.every((p) => card.text.includes(p)) && card.text.indexOf(d.pros[2]) < card.text.indexOf("Come si fa après-ski") && card.text.indexOf("Come si fa après-ski") < card.text.indexOf(`Da mettere in conto: ${d.downside}`), d.id);
       check(`${d.id} says how the evening works`, card.text.includes("Come si fa après-ski") && card.text.includes(d.apres.how), d.id);
       const vote = (n) => `${String(n).replace(".", ",")}/10`;
       check(`${d.id} shows both ratings`, card.facts.includes(`Sci ${vote(d.ratings.ski)}`) && card.facts.includes(`Après-ski ${vote(d.ratings.apres)}`), card.facts);
@@ -528,9 +531,12 @@ function startServer(db, net) {
     await js(`document.getElementById("budget-reset").click(); $pick("dest", "alpe"); $set("km", "100"); $pick("dest", "thorens");`);
     check("a typed km stays with its destination", (await js(`return document.getElementById("km").value`)) === String(dest("thorens").trip.km));
     await js(`document.getElementById("budget-reset").click();`);
-    check("verdict above budget", (await js(`return $t("#verdict")`)).includes("sopra"));
+    check("verdict above budget says what it buys", (await js(`return $t("#verdict")`)).includes(`oltre il nostro viaggio più caro, per ${dest("thorens").km} km`), await js(`return $t("#verdict")`));
     await js(`$pick("dest", "tignes");`);
-    check("verdict within the band", (await js(`return $t("#verdict")`)).includes("dentro la fascia"), await js(`return $t("#verdict")`));
+    check("verdict within the band", (await js(`return $t("#verdict")`)).includes("in meno del nostro viaggio più caro"), await js(`return $t("#verdict")`));
+    await js(`$set("flat", "100"); $set("pass", "10");`);
+    check("verdict under the band", (await js(`return $t("#verdict")`)).includes("in meno del nostro viaggio più economico"), await js(`return $t("#verdict")`));
+    await js(`document.getElementById("budget-reset").click(); $pick("dest", "tignes");`);
     await js(`$set("people", "2");`);
     check("the comparison stays published while the calculator changes", (await js(`return $t("#compare strong")`)) === euro(expected(TRIP.destinations[0], 4)), await js(`return $t("#compare strong")`));
     await js(`document.getElementById("budget-reset").click();`);
@@ -688,7 +694,7 @@ function startServer(db, net) {
     check("the gauge places no mark for a total without a lodging", partial.gauge, partial);
     check("no price is shown for a destination without a lodging", partial.number === "" && partial.label === "Casa da scegliere" && partial.sign.includes("casa da scegliere"), partial);
     check("the objection says which destinations it counts", partial.objection.includes("manca ancora per Serre Chevalier") && !partial.objection.includes("tutte"), partial);
-    check("the calculator says the total has no lodging", partial.live.includes("senza alloggio") && partial.total.includes("senza alloggio") && partial.verdict.includes("Manca"), partial);
+    check("the calculator says the total has no lodging", partial.live.includes("senza alloggio") && partial.total.includes("senza alloggio") && partial.verdict.includes("Scegli un alloggio"), partial);
     await js(`document.getElementById("quote-note").value = "senza casa"; document.getElementById("quote-form").requestSubmit(); await $until(() => document.querySelector("#quote-list li"));`);
     check("a quote saved without a lodging says so", (await js(`return $t("#quote-list small")`)).includes("Senza alloggio"), await js(`return $t("#quote-list small")`));
     await js(`document.querySelector("[data-delete]").click(); await $until(() => !document.querySelector("#quote-list li"));`);
@@ -721,7 +727,7 @@ function startServer(db, net) {
     await go();
     await js(`await $until(() => $t("#house-empty") !== undefined && !document.getElementById("house-empty").hidden);`);
     const noHouses = await js(`return { signs: $t(".sign-data"), compare: $t("#compare small"), verdict: $t("#verdict"), hero: $t("#hero-cost"), objection: $t("#cost-objection"), ledger: document.getElementById("ledger-body").textContent }`);
-    check("no lodging at all stays honest", noHouses.signs.includes("casa da scegliere") && noHouses.compare === "Casa da scegliere" && noHouses.verdict.includes("Manca") && !noHouses.hero && noHouses.objection.includes("Appena") && noHouses.ledger.includes("Nessun alloggio"), noHouses);
+    check("no lodging at all stays honest", noHouses.signs.includes("casa da scegliere") && noHouses.compare === "Casa da scegliere" && noHouses.verdict.includes("Scegli un alloggio") && !noHouses.hero && noHouses.objection.includes("Appena") && noHouses.ledger.includes("Nessun alloggio"), noHouses);
     for (const row of emptied.rows) {
       await db.query("insert into houses (id, person, dest, name, zone, url, nights, total, note, official) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)", [row.id, row.person, row.dest, row.name, row.zone, row.url, row.nights, row.total, row.note, row.official]);
     }
@@ -900,6 +906,9 @@ function startServer(db, net) {
         await settle();
         await shot(`g14-plate-${d.id}`);
       }
+      await js(`document.querySelector("#alpe .pros").scrollIntoView(); scrollBy(0, -160);`);
+      await settle();
+      await shot("g23-pros-alpe");
       await js(`document.querySelector("#tignes .facts").scrollIntoView();`);
       await settle();
       await shot("g20-venues-tignes");

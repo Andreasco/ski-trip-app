@@ -143,7 +143,7 @@
       .filter(houseOf)
       .map((d) => ({ d, total: costOf(d, days).total }))
       .sort((a, b) => a.total - b.total)[0];
-    $("#hero-cost").textContent = cheapest ? `Stima da ${euro(cheapest.total)} a testa ${cheapest.d.at}, alloggio da confermare.` : "";
+    $("#hero-cost").textContent = cheapest ? `Si parte da circa ${euro(cheapest.total)} a testa ${cheapest.d.at}, con alloggio, skipass e viaggio dentro.` : "";
     $("#signs").innerHTML = TRIP.destinations.map((d) => `<a class="sign" href="#${d.id}">${disc(d.grade)}<span class="sign-name">${keepSlash(d.name)}</span><span class="sign-data">${d.drive}<br>${houseOf(d) ? `stima ${euro(costOf(d, days).total)}` : "casa da scegliere"}</span></a>`).join("");
   }
 
@@ -152,7 +152,7 @@
     const [, high] = budgetBand() || [];
     const priced = TRIP.destinations.filter(houseOf).map((d) => ({ name: d.name, total: costOf(d, days).total }));
     if (!priced.length) {
-      $("#cost-objection").textContent = "Giusto preoccuparsene. Appena inseriamo gli alloggi, qui compare il conto di ogni meta.";
+      $("#cost-objection").textContent = "Appena inseriamo gli alloggi, qui compare il conto di ogni meta.";
       return;
     }
     const totals = priced.map((p) => p.total);
@@ -164,10 +164,13 @@
       const all = missing.length ? "" : "tutte ";
       if (priced.length === 1) verdict = over.length ? " Oggi supera il nostro viaggio più caro." : " Oggi sta entro il nostro viaggio più caro.";
       else if (!over.length) verdict = ` Oggi stanno ${all}entro il nostro viaggio più caro.`;
-      else if (over.length === priced.length) verdict = ` Oggi costano ${all}più del nostro viaggio più caro.`;
-      else verdict = ` Oggi supera il nostro viaggio più caro solo ${over.join(" e ")}.`;
+      else if (over.length === priced.length) verdict = ` Oggi superano ${all}il nostro viaggio più caro.`;
+      else verdict = ` Oggi solo ${over.join(" e ")} ${over.length > 1 ? "superano" : "supera"} il nostro viaggio più caro: ${priced.length - over.length === 1 ? "l'altra sta" : "le altre stanno"} dentro.`;
     }
-    $("#cost-objection").textContent = `Giusto preoccuparsene. Con ${COUNT[days - 1]} notti e ${COUNT[days]} giorni di sci ${priced.length === 1 ? `${priced[0].name} costa ${euro(totals[0])}` : `si va da ${euro(Math.min(...totals))} a ${euro(Math.max(...totals))}`} a testa${scope}.${verdict} Gli alloggi sono da confermare: qui sopra puoi cambiare ogni voce finché non torna.`;
+    const low = Math.min(...totals);
+    const top = Math.max(...totals);
+    const perDay = priced.length === 1 ? euro(low / days) : `da ${euro(low / days)} a ${euro(top / days)}`;
+    $("#cost-objection").textContent = `Facciamo due conti. Con ${COUNT[days - 1]} notti e ${COUNT[days]} giorni di sci ${priced.length === 1 ? `${priced[0].name} costa ${euro(low)}` : `si va da ${euro(low)} a ${euro(top)}`} a testa${scope}. Sono ${perDay} per ogni giorno sulla neve.${verdict} Il prezzo degli alloggi si conferma quando prenotiamo; intanto qui sopra puoi cambiare ogni voce.`;
   }
 
   function renderPast() {
@@ -218,6 +221,7 @@
           <h3>${disc(d.grade)} ${keepSlash(d.name)}</h3>
           <p class="lead">${d.gradeLabel}. ${d.title}</p>
           <p>${d.pitch}</p>
+          <div class="pros"><h4>I pro</h4><ul>${d.pros.map((p) => `<li>${p}</li>`).join("")}</ul></div>
           <dl class="facts">
             <div><dt>Piste</dt><dd>${d.km} km</dd></div>
             <div><dt>Quota massima</dt><dd>${grouped(d.top)} m</dd></div>
@@ -227,8 +231,7 @@
           <h4 class="apres-title">Come si fa après-ski</h4>
           <ul class="venues">${d.apres.venues.map((v) => `<li><a href="${v.url}" target="_blank" rel="noopener">${v.name}</a>, ${v.when}. ${v.text}</li>`).join("")}</ul>
           <p>${d.apres.how}</p>
-          <p class="note"><strong>I pro:</strong> ${d.upside}</p>
-          <p class="note"><strong>I contro:</strong> ${d.downside}</p>
+          <p class="note"><strong>Da mettere in conto:</strong> ${d.downside}</p>
           <p class="dest-actions">
             <a class="btn" href="#volo" data-fly="${d.id}">Sorvola ${d.name.split(" / ")[0]}</a>
             <a class="btn btn-quiet" href="#conto" data-budget="${d.id}">Fai il conto</a>
@@ -283,12 +286,17 @@
     $("#live-total").innerHTML = `<span>${dest.name}, ${state.days} giorni</span><strong>${euro(cost.total)}</strong><small>${noStay ? "a testa, senza alloggio" : "a testa"}</small>`;
     $("#ledger-group").textContent = euro(cost.groupTotal);
 
-    const verdict = !band ? "" : cost.total > high
-      ? `Stima: ${euro(cost.total - high)} a testa sopra il massimo che abbiamo speso finora`
-      : cost.total < low
-        ? `Stima: ${euro(low - cost.total)} a testa sotto i nostri viaggi passati`
-        : "Stima: dentro la fascia dei nostri viaggi passati";
-    $("#verdict").textContent = noStay ? "Manca ancora l'alloggio: il conto non è completo" : verdict;
+    // Rounded like the figures on screen, so no sentence ever says "0 €".
+    const overTop = Math.round(cost.total - high);
+    const underLow = Math.round(low - cost.total);
+    const verdict = !band ? "" : overTop > 0
+      ? `Stima: ${euro(overTop)} a testa oltre il nostro viaggio più caro, per ${dest.km} km di piste`
+      : underLow > 0
+        ? `Stima: ${euro(underLow)} a testa in meno del nostro viaggio più economico, con ${dest.km} km di piste`
+        : overTop === 0
+          ? `Stima: come il nostro viaggio più caro, con ${dest.km} km di piste`
+          : `Stima: ${euro(-overTop)} a testa in meno del nostro viaggio più caro, con ${dest.km} km di piste`;
+    $("#verdict").textContent = noStay ? "Scegli un alloggio e il conto è completo" : verdict;
 
     const scale = (value) => Math.min(100, Math.max(0, ((value - 400) / 600) * 100));
     const gauge = $("#gauge");
@@ -309,12 +317,11 @@
       const row = document.querySelector(`#compare [data-row="${d.id}"]`);
       const house = houseOf(d);
       const total = house ? costOf(d, TRIP.defaults.days).total : 0;
-      const label = !band ? "" : total > high ? `Sopra ${euro(high)}` : `Entro ${euro(high)}`;
-      row.querySelector(".compare-figure").innerHTML = house ? `<strong>${euro(total)}</strong><small>${label}</small>` : `<strong></strong><small>Casa da scegliere</small>`;
+      row.querySelector(".compare-figure").innerHTML = house ? `<strong>${euro(total)}</strong><small>${d.km} km di piste</small>` : `<strong></strong><small>Casa da scegliere</small>`;
       row.querySelector(".compare-stay").textContent = house ? `${house.name}, ${euro(house.total)} in totale` : "";
     });
     const { people: basePeople, cars: baseCars, nights: baseNights } = TRIP.defaults.shared;
-    $("#compare-note").textContent = `Le cifre delle mete restano con ${nightsWord(baseNights)}, ${TRIP.defaults.days} giorni, ${peopleCount(basePeople)} e ${baseCars} auto, qualunque cosa provi più giù.${band ? ` ${euro(high)} è il nostro viaggio più caro.` : ""}`;
+    $("#compare-note").textContent = `Le cifre delle mete restano con ${nightsWord(baseNights)}, ${TRIP.defaults.days} giorni, ${peopleCount(basePeople)} e ${baseCars} auto, qualunque cosa provi più giù.${band ? ` Per confronto, il nostro viaggio più caro è costato ${euro(high)}.` : ""}`;
     $("#quote-what").textContent = `${dest.name}, ${state.days} giorni, ${euro(cost.total)} a testa${noStay ? ", senza alloggio" : ""}.`;
   }
 
