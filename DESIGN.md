@@ -411,13 +411,13 @@ The offline map: graded lines at 2.6px on a white ground inside a 3px ink frame,
 The closing image, painted from an authored drawing with a jagged night range. The hut and skis are too small for the panorama brush, so they get a finer brush with a soft restamp over it. The piste stays crisper, because the rail lands on it. The brush grows with the scene's width, so a wide screen keeps the same painted grain as a phone.
 
 ### Car Frame
-Four seats inside a car seen from above, painted at runtime with the panorama brush from an authored drawing: body, windscreen, rear window, mirrors and wheels. Two columns of 10px seats in snow with paper grain sit on top, each with its status beneath. A seat turns ink with dark board grain and white text once its person is aboard. Until the painting lands, or if it fails, the car is a plain deep rounded block with its seats. The painting then settles in over .4s, like the bar scene, and lands at once under reduced motion.
+Four seats inside a car seen from above, painted at runtime with the panorama brush from an authored drawing: body, windscreen, rear window, mirrors and wheels. Two columns of 10px seats in snow with paper grain sit on top, named by position, with the person and their status beneath. A free seat is a control in deep text, marked Libero; your own carries a 3px inset line in its text colour and can be left. A seat turns ink with dark board grain and white text once its person is aboard. Whoever has no seat is named in a line under the car. Until the painting lands, or if it fails, the car is a plain deep rounded block with its seats. The painting then settles in over .4s, like the bar scene, and lands at once under reduced motion.
 
 ### Pros Board
 A square deep blue board right after a destination's pitch, with snow text at weight 700 and a native list. The caveats come last in the card, as a plain note at the same reading size: nothing is hidden, the pros simply speak first.
 
 ### Live Total
-A paper strip with a 4px double ink rule, sticky through the budget block and no further. It holds the destination and days at 0.9375rem, the total in Bowlby One at 1.5rem, and the words "a testa".
+A paper strip with a 4px double ink rule, sticky through the whole Conto band, lodgings and saved quotes included, and no further. It holds the destination and days at 0.9375rem, the total in Bowlby One at 1.5rem, and the words "a testa".
 
 ### Quote Calculator
 The answer comes first: destination rows, one control holding disc, name, published figure per head with the kilometres of piste it buys, and lodging, then the ledger with its "Voce / A testa" header and the verdict. The number fields stay folded in a native details under "Cambia le voci", grouped by who pays (the group, split among everyone, per head) in fieldsets with a Bowlby One legend at 1.2rem. Each group is a two-column grid at every width, with a 12px gap, labels at 0.9375rem and inputs aligned to the bottom so uneven labels keep them level.

@@ -29,7 +29,7 @@
   // Shared rows can name destinations that changed since: keep only those that exist, once each.
   const validRanking = (ranking) => (Array.isArray(ranking) ? [...new Set(ranking)].filter((id) => TRIP.destinations.some((d) => d.id === id)) : []);
   // The button stays busy until the answer arrives, so a second tap cannot save twice.
-  const attempt = async (status, success, action, button, { busy = "Salvo…", failed = "salvare" } = {}) => {
+  const attempt = async (status, success, action, button, { busy = "Salvo…", failed = "salvare", known = {} } = {}) => {
     if (button.disabled) return null;
     const label = button.textContent;
     button.disabled = true;
@@ -39,9 +39,9 @@
       status.textContent = success;
       return result ?? true;
     } catch (error) {
-      status.textContent = error.refused
+      status.textContent = known[error.message] || (error.refused
         ? `${failed === "salvare" ? "Il salvataggio è stato rifiutato" : "La richiesta è stata rifiutata"}: controlla i valori e riprova. Se succede ancora, avvisa chi organizza.`
-        : `Non sono riuscito a ${failed}. Controlla la rete; se la rete c'è, avvisa chi organizza.`;
+        : `Non sono riuscito a ${failed}. Controlla la rete; se la rete c'è, avvisa chi organizza.`);
       return null;
     } finally {
       button.disabled = false;
@@ -600,6 +600,10 @@
     // Saved rankings fill the list only until the voter starts moving things.
     let touched = false;
 
+    // Seen from above with the windscreen at the top, driving on the left.
+    const SEATS = ["Guida", "Passeggero", "Dietro sinistra", "Dietro destra"];
+    const PASSED = "Stavolta passi: per salire, prima salva il voto.";
+
     const renderSeats = () => {
       const votes = store.listVotes();
       const voting = votes.filter((vote) => vote.attending);
@@ -619,12 +623,35 @@
         const choice = !vote.attending ? "stavolta passa" : ranked.length ? `${ranked.map((id, i) => `${i + 1}. ${byId(id).name}`).join(", ")}${gap}` : "ci sta, senza classifica";
         return `<li><strong>${name}</strong>: ${choice}</li>`;
       }).join("");
-      $("#seats").innerHTML = store.listPeople().map((person) => {
-        const vote = votes.find((row) => row.person === person.id);
-        // The organizer is aboard from the start; the others until they say otherwise are still to confirm.
-        const status = vote ? (vote.attending ? "A bordo" : "Stavolta passa") : person.organizer ? "A bordo" : "Da confermare";
-        return `<li class="${status === "A bordo" ? "is-in" : ""}"><strong>${escapeHtml(person.name || person.id)}</strong><small>${status}</small></li>`;
+      const people = store.listPeople();
+      const seats = store.listSeats();
+      const self = store.session?.person;
+      // The organizer is aboard from the start; the others until they say otherwise are still to confirm.
+      const statusOf = (person) => {
+        const vote = votes.find((row) => row.person === person?.id);
+        return vote ? (vote.attending ? "A bordo" : "Stavolta passa") : person?.organizer ? "A bordo" : "Da confermare";
+      };
+      const passed = votes.find((row) => row.person === self)?.attending === false;
+      $("#seats").innerHTML = SEATS.map((where, index) => {
+        const taken = seats.find((row) => row.seat === index + 1);
+        const data = `data-seat="${index + 1}"`;
+        if (!taken) {
+          const inside = `<small>${where}</small><strong>Libero</strong>`;
+          return `<li>${passed ? `<div class="seat is-free">${inside}</div>` : `<button type="button" class="seat is-free" ${data} aria-label="Sali qui: ${where}">${inside}</button>`}</li>`;
+        }
+        const person = people.find((p) => p.id === taken.person);
+        const status = statusOf(person);
+        const look = `seat${status === "A bordo" ? " is-in" : ""}`;
+        const name = escapeHtml(person?.name || taken.person);
+        if (taken.person !== self) return `<li><div class="${look}"><small>${where}</small><strong>${name}</strong><small>${status}</small></div></li>`;
+        return `<li><button type="button" class="${look} is-mine" ${data} aria-label="Scendi da questo posto: ${where}"><small>${where}</small><strong>${name} (tu)</strong><small>${status}</small></button></li>`;
       }).join("");
+      const standing = people.filter((p) => !seats.some((row) => row.person === p.id));
+      const names = (list) => list.map((p) => escapeHtml(p.name || p.id)).join(", ");
+      const ground = standing.filter((p) => statusOf(p) !== "Stavolta passa");
+      const away = standing.filter((p) => statusOf(p) === "Stavolta passa");
+      $("#seat-ground").innerHTML = [ground.length && `Ancora a terra: ${names(ground)}.`, away.length && `Stavolta passa: ${names(away)}.`].filter(Boolean).join(" ");
+      $("#seat-hint").textContent = passed ? PASSED : seats.some((row) => row.person === self) ? "Tocca un posto libero per cambiare, o il tuo per scendere." : "Tocca un posto libero per salire.";
     };
 
     const renderVote = (focusId) => {
@@ -661,6 +688,22 @@
       const saved = await attempt($("#vote-status"), message, () => store.saveVote({ ranking: attending ? [...ranking] : [], attending }), $(attending ? "#save-vote" : "#save-pass"));
       if (saved) renderShared();
     };
+    $("#seats").addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-seat]");
+      if (!button) return;
+      const seat = Number(button.dataset.seat);
+      const leaving = store.listSeats().some((row) => row.seat === seat && row.person === store.session?.person);
+      const ok = await attempt($("#seat-status"), leaving ? "Posto liberato: ora lo vediamo tutti." : "Posto preso: ora lo vediamo tutti.", () => store.chooseSeat(leaving ? null : seat), button, {
+        busy: "Un attimo…",
+        failed: "salvare il posto",
+        known: { seat_taken: "Quel posto è appena stato preso: scegline un altro.", not_attending: PASSED },
+      });
+      // A refusal means this page is behind: show who took the seat.
+      if (ok) renderShared();
+      else await refreshShared();
+      const same = document.querySelector(`[data-seat="${seat}"]`);
+      if (same) same.focus({ preventScroll: true });
+    });
     $("#save-vote").addEventListener("click", () => saveVote(true));
     $("#save-pass").addEventListener("click", () => saveVote(false));
 

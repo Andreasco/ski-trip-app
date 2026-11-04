@@ -27,7 +27,7 @@ Each of these should be refused, because nothing is readable without a code:
 - `POST /rest/v1/rpc/hash_code`: permission denied.
 - `POST /rest/v1/rpc/login` with a wrong code: 400 with message `bad_code`.
 
-Then, from the published site and not from a terminal, so real codes stay out of shell history: stamp a skipass, vote, save and delete a quote, close a proposal, add a lodging. As a friend, check that no star button shows.
+Then, from the published site and not from a terminal, so real codes stay out of shell history: stamp a skipass, vote, take and leave a seat, save and delete a quote, close a proposal, add a lodging. As a friend, check that no star button shows.
 
 ## Pauses
 
