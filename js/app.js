@@ -323,6 +323,7 @@
     const { people: basePeople, cars: baseCars, nights: baseNights } = TRIP.defaults.shared;
     $("#compare-note").textContent = `Le cifre delle mete restano con ${nightsWord(baseNights)}, ${TRIP.defaults.days} giorni, ${peopleCount(basePeople)} e ${baseCars} auto, qualunque cosa provi più giù.${band ? ` Per confronto, il nostro viaggio più caro è costato ${euro(high)}.` : ""}`;
     $("#quote-what").textContent = `${dest.name}, ${state.days} giorni, ${euro(cost.total)} a testa${noStay ? ", senza alloggio" : ""}.`;
+    renderHouses();
   }
 
   function setupBudget() {
@@ -481,60 +482,62 @@
   }
 
   // Anyone adds what they find; the organizer stars the one that sets the published figures.
+  function renderHouses() {
+    const { organizer, person: self } = store.session || {};
+    const { days } = TRIP.defaults;
+    const houses = store.listHouses();
+    const actions = (h, usable) => {
+      const name = escapeHtml(h.name);
+      return `<div class="quote-actions">
+            ${usable ? `<button type="button" class="btn btn-small" data-use="${escapeHtml(h.id)}" aria-label="Usa nel conto: ${name}">Usa nel conto</button>` : ""}
+            ${organizer && usable ? `<button type="button" class="btn btn-small btn-quiet" data-star="${escapeHtml(h.id)}" aria-label="${h.official ? "Togli il riferimento a" : "Segna come riferimento"}: ${name}">${h.official ? "Togli riferimento" : "Segna come riferimento"}</button>` : ""}
+            ${organizer || h.person === self ? `<button type="button" class="btn btn-small btn-quiet" data-drop="${escapeHtml(h.id)}" aria-label="Elimina: ${name}">Elimina</button>` : ""}
+          </div>`;
+    };
+    const about = (h) => `<small>${h.zone ? `${escapeHtml(h.zone)}. ` : ""}Trovato da ${escapeHtml(nameOf(h.person))}, ${shortDate(h.createdAt)}.</small>
+            ${h.note ? `<small>${escapeHtml(h.note)}</small>` : ""}`;
+    const d = byId(state.dest);
+    const listed = houses.filter((h) => h.dest === d.id);
+    const groups = !listed.length ? [] : [`
+      <h4>${disc(d.grade)} ${d.name}</h4>
+      <ul class="quote-list house-list">${listed.map((h) => {
+  const trip = tripCost({ ...defaultsOf(d, days), flatTotal: houseTotal(h, days - 1) }).total;
+  return `
+        <li>
+          <div>
+            <strong>${escapeHtml(h.name)}</strong>
+            ${about(h)}
+            <small class="house-trip">Con questo alloggio, tutto il viaggio costa ${euro(trip)} a testa${h.nights === days - 1 ? "" : `, riportato a ${nightsWord(days - 1)}`}.</small>
+            ${h.official ? `<span class="house-official"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.6 1.3 6.7-6-3.3-6 3.3 1.3-6.7-5-4.6 6.8-.8z"/></svg>Alloggio di riferimento</span>` : ""}
+            ${houseLink(h)}
+          </div>
+          <span class="quote-total">${euro(h.total)}<small>in totale, ${nightsWord(h.nights)}</small></span>
+          ${actions(h, true)}
+        </li>`;
+}).join("")}</ul>`];
+    // Lodgings of a destination no longer in the trip stay visible, and can only be removed.
+    const orphans = houses.filter((h) => !byId(h.dest));
+    if (orphans.length) {
+      groups.push(`
+      <h4>Altre mete, non più in gara</h4>
+      <ul class="quote-list house-list">${orphans.map((h) => `
+        <li>
+          <div>
+            <strong>${escapeHtml(h.name)}</strong>
+            ${about(h)}
+          </div>
+          <span class="quote-total">${euro(h.total)}<small>in totale, ${nightsWord(h.nights)}</small></span>
+          ${actions(h, false)}
+        </li>`).join("")}</ul>`);
+    }
+    $("#house-empty").hidden = listed.length > 0;
+    $("#house-empty").textContent = `Ancora nessuno ${d.at}: aggiungi il primo qui sotto.`;
+    $("#house-list").innerHTML = groups.join("");
+  }
+
   function setupHouses() {
     const select = $("#house-dest");
     select.innerHTML = TRIP.destinations.map((d) => `<option value="${d.id}">${d.name}</option>`).join("");
-
-    const renderHouses = () => {
-      const { organizer, person: self } = store.session || {};
-      const { days } = TRIP.defaults;
-      const houses = store.listHouses();
-      const actions = (h, usable) => {
-        const name = escapeHtml(h.name);
-        return `<div class="quote-actions">
-              ${usable ? `<button type="button" class="btn btn-small" data-use="${escapeHtml(h.id)}" aria-label="Usa nel conto: ${name}">Usa nel conto</button>` : ""}
-              ${organizer && usable ? `<button type="button" class="btn btn-small btn-quiet" data-star="${escapeHtml(h.id)}" aria-label="${h.official ? "Togli il riferimento a" : "Segna come riferimento"}: ${name}">${h.official ? "Togli riferimento" : "Segna come riferimento"}</button>` : ""}
-              ${organizer || h.person === self ? `<button type="button" class="btn btn-small btn-quiet" data-drop="${escapeHtml(h.id)}" aria-label="Elimina: ${name}">Elimina</button>` : ""}
-            </div>`;
-      };
-      const about = (h) => `<small>${h.zone ? `${escapeHtml(h.zone)}. ` : ""}Trovato da ${escapeHtml(nameOf(h.person))}, ${shortDate(h.createdAt)}.</small>
-              ${h.note ? `<small>${escapeHtml(h.note)}</small>` : ""}`;
-      const groups = TRIP.destinations.filter((d) => houses.some((h) => h.dest === d.id)).map((d) => `
-        <h4>${disc(d.grade)} ${d.name}</h4>
-        <ul class="quote-list house-list">${houses.filter((h) => h.dest === d.id).map((h) => {
-    const trip = tripCost({ ...defaultsOf(d, days), flatTotal: houseTotal(h, days - 1) }).total;
-    return `
-          <li>
-            <div>
-              <strong>${escapeHtml(h.name)}</strong>
-              ${about(h)}
-              <small class="house-trip">Con questo alloggio, tutto il viaggio costa ${euro(trip)} a testa${h.nights === days - 1 ? "" : `, riportato a ${nightsWord(days - 1)}`}.</small>
-              ${h.official ? `<span class="house-official"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.6 1.3 6.7-6-3.3-6 3.3 1.3-6.7-5-4.6 6.8-.8z"/></svg>Alloggio di riferimento</span>` : ""}
-              ${houseLink(h)}
-            </div>
-            <span class="quote-total">${euro(h.total)}<small>in totale, ${nightsWord(h.nights)}</small></span>
-            ${actions(h, true)}
-          </li>`;
-  }).join("")}</ul>`);
-      // Lodgings of a destination no longer in the trip stay visible, and can only be removed.
-      const orphans = houses.filter((h) => !byId(h.dest));
-      if (orphans.length) {
-        groups.push(`
-        <h4>Altre mete, non più in gara</h4>
-        <ul class="quote-list house-list">${orphans.map((h) => `
-          <li>
-            <div>
-              <strong>${escapeHtml(h.name)}</strong>
-              ${about(h)}
-            </div>
-            <span class="quote-total">${euro(h.total)}<small>in totale, ${nightsWord(h.nights)}</small></span>
-            ${actions(h, false)}
-          </li>`).join("")}</ul>`);
-      }
-      $("#house-empty").hidden = groups.length > 0;
-      $("#house-list").innerHTML = groups.join("");
-    };
-    renderers.push(renderHouses);
 
     $("#house-add").addEventListener("toggle", () => {
       if ($("#house-add").open && !$("#house-name").value) select.value = state.dest;
@@ -554,6 +557,9 @@
       if (!saved) return;
       ["#house-name", "#house-zone", "#house-url", "#house-total", "#house-note"].forEach((id) => { $(id).value = ""; });
       $("#house-add").open = false;
+      // The list shows one destination: go to the one just added to.
+      state.dest = select.value;
+      document.querySelector(`input[name="dest"][value="${state.dest}"]`).checked = true;
       renderShared();
       $("#house-status").focus();
     });

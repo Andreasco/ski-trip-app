@@ -423,6 +423,7 @@ A paper strip with a 4px double ink rule, sticky through the budget block and no
 The answer comes first: destination rows, one control holding disc, name, published figure per head with the kilometres of piste it buys, and lodging, then the ledger with its "Voce / A testa" header and the verdict. The number fields stay folded in a native details under "Cambia le voci", grouped by who pays (the group, split among everyone, per head) in fieldsets with a Bowlby One legend at 1.2rem. Each group is a two-column grid at every width, with a 12px gap, labels at 0.9375rem and inputs aligned to the bottom so uneven labels keep them level.
 
 ### Lodging Row
+Only the selected destination's lodgings show, under its disc and name, so the list follows the calculator.
 A paper row with a 4px double ink rule, grouped under its destination's disc. It adds the zone, who found it, a source link only for https addresses, the lodging's own total price on the right, and the whole trip's cost per person in a bold line. Every euro in bold states its base. The form to add one stays folded under the list. Deleting asks for confirmation first, in the browser's own dialog. Folded blocks are a native details whose summary is a 52px outlined bar with an inline chevron. The one that sets the published figures carries an inline deep star and the words "Alloggio di riferimento". Only the organizer can set it; the author and the organizer can delete.
 
 ### Saved Quote Row
