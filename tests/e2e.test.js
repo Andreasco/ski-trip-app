@@ -164,7 +164,7 @@ function startServer(db, net) {
       await tx.query(`set local role ${role}`);
       return tx.query(sql);
     });
-    for (const table of ["people", "quotes", "votes", "proposals", "past_trips", "photos", "houses"]) {
+    for (const table of ["people", "quotes", "votes", "seats", "proposals", "past_trips", "photos", "houses"]) {
       await refused(`${role} cannot read ${table}`, () => asRole(`select * from ${table}`), "permission denied");
       await refused(`${role} cannot delete from ${table}`, () => asRole(`delete from ${table}`), "permission denied");
     }
@@ -174,7 +174,7 @@ function startServer(db, net) {
     await refused(`${role} cannot create tables`, () => asRole("create table hack (id int)"));
   }
   // Every function, whatever is added later: authenticated reaches none, anon only this list.
-  const PUBLIC_FUNCTIONS = ["delete_house", "delete_proposal", "delete_quote", "login", "read_all", "read_photo", "save_house", "save_photo", "save_proposal", "save_quote", "save_vote", "set_official_house", "set_past_trip", "set_person", "set_proposal_status"];
+  const PUBLIC_FUNCTIONS = ["choose_seat", "delete_house", "delete_proposal", "delete_quote", "login", "read_all", "read_photo", "save_house", "save_photo", "save_proposal", "save_quote", "save_vote", "set_official_house", "set_past_trip", "set_person", "set_proposal_status"];
   const grants = (await db.query(`select p.proname as name, has_function_privilege('anon', p.oid, 'execute') as anon, has_function_privilege('authenticated', p.oid, 'execute') as auth
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'`)).rows;
   check("authenticated can call no function", !grants.some((g) => g.auth), grants.filter((g) => g.auth).map((g) => g.name));
@@ -198,12 +198,27 @@ function startServer(db, net) {
     await old.exec(fs.readFileSync(path.join(ROOT, "supabase", "schema.sql"), "utf8"));
     await old.exec("reset role; set role anon");
     const after = (await old.query("select read_all('AAAA') as r")).rows[0].r;
-    check("an upgrade keeps votes and quotes, and adds the new data", after.votes.length === 1 && after.quotes.length === 1 && after.quotes[0].nights === null && Array.isArray(after.houses) && Array.isArray(after.photos), after);
+    check("an upgrade keeps votes and quotes, and adds the new data", after.votes.length === 1 && after.quotes.length === 1 && after.quotes[0].nights === null && Array.isArray(after.houses) && Array.isArray(after.photos) && Array.isArray(after.seats), after);
     await old.close();
   }
-  const open = (await db.query("select relname from pg_class where relname in ('people','quotes','votes','proposals','past_trips','photos','houses') and not relrowsecurity")).rows;
+  const open = (await db.query("select relname from pg_class where relname in ('people','quotes','votes','seats','proposals','past_trips','photos','houses') and not relrowsecurity")).rows;
   check("row level security is on everywhere", !open.length, open);
   const content = (i) => ({ p_code: CODES.bravo, ...i });
+  // Seats: first come, one each, and only your own.
+  const seatRows = async () => (await db.query("select seat, person from seats order by seat")).rows.map((r) => `${r.seat}${r.person}`).join();
+  await rpc(db, "choose_seat", { p_code: CODES.alfa, p_seat: 1 });
+  await refused("a taken seat stays taken", () => rpc(db, "choose_seat", { p_code: CODES.bravo, p_seat: 1 }), "seat_taken");
+  await refused("a seat outside the car is refused", () => rpc(db, "choose_seat", { p_code: CODES.bravo, p_seat: 5 }));
+  await refused("a seat needs a good code", () => rpc(db, "choose_seat", { p_code: "x", p_seat: 2 }), "bad_code");
+  await rpc(db, "choose_seat", { p_code: CODES.alfa, p_seat: 2 });
+  check("changing seat frees the old one", (await seatRows()) === "2alfa", await seatRows());
+  await rpc(db, "choose_seat", { p_code: CODES.bravo, p_seat: 1 });
+  await rpc(db, "choose_seat", { p_code: CODES.bravo, p_seat: null });
+  check("getting up touches only your own seat", (await seatRows()) === "2alfa", await seatRows());
+  await rpc(db, "save_vote", { p_code: CODES.alfa, p_ranking: [], p_attending: false });
+  check("passing frees the seat", (await seatRows()) === "", await seatRows());
+  await refused("whoever passes cannot sit", () => rpc(db, "choose_seat", { p_code: CODES.alfa, p_seat: 1 }), "not_attending");
+  await db.exec("delete from votes");
   await refused("only the organizer sets a person", () => rpc(db, "set_person", content({ p_id: "bravo", p_name: "x", p_line: "x", p_position: 0 })), "not_allowed");
   await refused("only the organizer sets a past trip", () => rpc(db, "set_past_trip", content({ p_year: 2020, p_place: "x", p_cost: 1 })), "not_allowed");
   await refused("only the organizer adds a photo", () => rpc(db, "save_photo", content({ p_id: "x", p_year: 2020, p_alt: "x", p_width: 1, p_height: 1, p_position: 0, p_mime: "image/webp", p_data: PIXEL })), "not_allowed");
@@ -497,6 +512,12 @@ function startServer(db, net) {
     check("the answer comes before the controls, which stay folded", fold.closed && fold.order && !fold.fieldVisible, fold);
     check("lodgings come before their form and before the saved quotes", fold.listFirst && fold.lodgingsFirst, fold);
     check("the ledger says each amount is per head", fold.head.includes("A testa"), fold);
+    const pinned = await js(`const strip = document.getElementById("live-total"); const wait = () => new Promise((r) => setTimeout(r, 100));
+      document.getElementById("quote-list").scrollIntoView({ behavior: "instant", block: "center" }); await wait(); const during = strip.getBoundingClientRect();
+      document.getElementById("obiezioni").scrollIntoView({ behavior: "instant" }); await wait();
+      return { during: during.top, past: strip.getBoundingClientRect().bottom <= document.getElementById("obiezioni").getBoundingClientRect().top + 1 }`);
+    check("the total stays pinned through the saved quotes", pinned.during >= 0 && pinned.during < 5, pinned);
+    check("the total lets go before the objections", pinned.past, pinned);
     check("fields are grouped by who pays", fold.legends === "Il gruppo,Si divide tra tutti,A testa", fold);
     const stays = await js(`return [...document.querySelectorAll("#compare .compare-stay")].map((e) => e.textContent)`);
     TRIP.destinations.forEach((d, i) => check(`comparison names the ${d.id} lodging and its total`, stays[i] === `Casa ${d.id}, ${euro(HOUSES[d.id])} in totale`, stays[i]));
@@ -761,7 +782,7 @@ function startServer(db, net) {
     await js(`document.getElementById("save-pass").click(); await $until(() => $t("#vote-status"));`);
     check("a pass is confirmed", (await js(`return $t("#vote-status")`)).includes("stavolta passi"));
     check("a pass scores nothing", (await tally())[0] === "Serre Chevalier 4 punti", await tally());
-    check("a pass shows on the seat", (await js(`return [...document.querySelectorAll("#seats li")].find((l) => l.textContent.includes("Bravo")).textContent`)).includes("Stavolta passa"));
+    check("a pass shows under the car", (await js(`return $t("#seat-ground")`)).includes("Stavolta passa: Bravo"), await js(`return $t("#seat-ground")`));
     await login("charlie");
     await js(`document.getElementById("save-vote").click(); await $until(() => $t("#vote-status"));`);
     await js(`document.getElementById("vota").scrollIntoView(); await $until(() => document.getElementById("car-canvas").dataset.painted, 8000); await new Promise((r) => setTimeout(r, 900));`);
@@ -811,6 +832,44 @@ function startServer(db, net) {
     await js(`document.getElementById("proposal-text").value = "da togliere"; document.getElementById("proposal-form").requestSubmit(); await $until(() => document.querySelectorAll("#proposal-list li").length === 2);`);
     await js(`document.querySelector("[data-remove]").click(); await $until(() => $t("#proposal-status") === "Proposta eliminata.");`);
     check("deleting removes only that proposal", (await js(`return document.querySelectorAll("#proposal-list li").length`)) === 1 && (await js(`return $t("#proposal-list span")`)) !== "da togliere", await js(`return $t("#proposal-list span")`));
+
+    // Seats, from the page. Here Bravo has passed and the others are in.
+    await login("delta");
+    const seatState = () => js(`return { free: [...document.querySelectorAll("button.seat.is-free")].length, mine: $t(".seat.is-mine strong"), text: [...document.querySelectorAll("#seats li")].map((l) => l.innerText.replace(/\\s+/g, " ")), ground: $t("#seat-ground"), hint: $t("#seat-hint"), status: $t("#seat-status"), focus: document.activeElement.dataset.seat }`);
+    let seen = await seatState();
+    check("the car starts empty, every seat named", seen.free === 4 && seen.text.join() === "Guida Libero,Passeggero Libero,Dietro sinistra Libero,Dietro destra Libero", seen);
+    check("who has no seat is named under the car", seen.ground.includes("Ancora a terra: Alfa, Charlie, Delta") && seen.ground.includes("Stavolta passa: Bravo"), seen);
+    await js(`document.querySelector('[data-seat="1"]').click(); await $until(() => $t("#seat-status").includes("preso"));`);
+    seen = await seatState();
+    check("a free seat can be taken, and everyone sees it", (await db.query("select 1 from seats where seat = 1 and person = 'delta'")).rows.length === 1 && seen.mine === "Delta (tu)", seen);
+    check("taking a seat keeps focus on it, and leaves the ground", seen.focus === "1" && !seen.ground.includes("Delta"), seen);
+    await js(`document.querySelector('[data-seat="3"]').click(); await $until(() => document.querySelector('[data-seat="3"].is-mine'));`);
+    check("another free seat moves you there", (await db.query("select seat from seats where person = 'delta'")).rows.map((r) => r.seat).join() === "3");
+    await rpc(db, "choose_seat", { p_code: CODES.charlie, p_seat: 1 });
+    await js(`document.getElementById("seat-status").textContent = ""; document.querySelector('[data-seat="1"]').click(); await $until(() => $t("#seat-status"));`);
+    seen = await seatState();
+    check("a seat taken a moment ago says so, and shows who has it", seen.status.includes("appena stato preso") && seen.text[0] === "Guida Charlie A bordo", seen);
+    check("someone else's seat cannot be pressed", await js(`return !document.querySelector('[data-seat="1"]')`));
+    await rpc(db, "choose_seat", { p_code: CODES.alfa, p_seat: 2 });
+    await go();
+    await js(`document.getElementById("vota").scrollIntoView(); await $until(() => document.getElementById("car-canvas").dataset.painted, 8000); await new Promise((r) => setTimeout(r, 900));`);
+    await shot("g35-car-seats");
+    net.down = true;
+    await js(`document.querySelector('[data-seat="3"]').click(); await $until(() => $t("#seat-status"));`);
+    check("a failed seat says so and stays as it was", (await js(`return $t("#seat-status")`)).includes("Non sono riuscito") && await js(`return !!document.querySelector('[data-seat="3"].is-mine')`), await js(`return $t("#seat-status")`));
+    net.down = false;
+    await js(`document.querySelector('[data-seat="3"]').click(); await $until(() => $t("#seat-status").includes("liberato"));`);
+    check("your own seat can be left", (await db.query("select 1 from seats where person = 'delta'")).rows.length === 0);
+    await login("bravo");
+    seen = await seatState();
+    check("whoever passes has no seat to press, and is told why", seen.free === 0 && seen.hint.includes("prima salva il voto"), seen);
+    await js(`document.getElementById("save-vote").click(); await $until(() => document.querySelector("button.seat.is-free"));`);
+    check("voting again opens the seats", (await seatState()).free === 2, await seatState());
+    await rpc(db, "save_vote", { p_code: CODES.bravo, p_ranking: [], p_attending: false });
+    await rpc(db, "save_vote", { p_code: CODES.charlie, p_ranking: [], p_attending: false });
+    check("a pass frees the seat for the others", (await db.query("select 1 from seats where person = 'charlie'")).rows.length === 0);
+    await rpc(db, "save_vote", { p_code: CODES.charlie, p_ranking: TRIP.destinations.map((d) => d.id), p_attending: true });
+    await db.exec("delete from seats");
 
     // Failures must say so
     console.error(`[${Math.round(process.uptime())}s] Failures must say so: ${passed} ok, ${failures.length} failed`);

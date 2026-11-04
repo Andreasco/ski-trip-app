@@ -98,8 +98,8 @@
     <section id="conto" class="section section-deep">
       <h2>Il conto, già fatto</h2>
       <p class="measure">Tocca una meta per vedere ogni voce e cosa ti porti a casa. Tutte le cifre sono a testa, benzina e pedaggi compresi; solo gli alloggi hanno il prezzo totale, da dividere tra chi viene.</p>
+      <p id="live-total" class="live-total"></p>
       <div id="budget-form" class="budget">
-        <p id="live-total" class="live-total"></p>
         <p id="budget-status" class="deep-note budget-status" role="status" tabindex="-1"></p>
         <div class="budget-pick">
           <fieldset id="compare" class="compare"><legend>Le quattro mete a confronto, a testa</legend></fieldset>
@@ -188,9 +188,9 @@
     <section id="obiezioni" class="section">
       <h2>Ok sì, ma...</h2>
       <dl class="objections">
-        <div><dt>Costa troppo</dt><dd id="cost-objection"></dd></div>
-        <div><dt>Non ho ferie</dt><dd>Dal 4 al 7 febbraio è da giovedì a domenica: partendo presto e tornando la domenica sera, bastano 2 giorni di ferie per 4 giorni di sci. La data è una proposta.</dd></div>
-        <div><dt>Che fatica organizzare</dt><dd>Organizzo io. A te tocca una cosa sola: votare, e poi caricare gli sci in auto.</dd></div>
+        <div><dt>...costa troppo</dt><dd id="cost-objection"></dd></div>
+        <div><dt>...non ho ferie</dt><dd>Dal 4 al 7 febbraio è da giovedì a domenica: partendo presto e tornando la domenica sera, bastano 2 giorni di ferie per 4 giorni di sci. La data è una proposta.</dd></div>
+        <div><dt>...che fatica organizzare</dt><dd>Organizzo io. A te tocca una cosa sola: votare, e poi caricare gli sci in auto.</dd></div>
       </dl>
       <p class="hand">Se la risposta è no, è no. Nessuna multa e nessun processo nel gruppo.</p>
     </section>
@@ -210,6 +210,9 @@
         </svg>
         <ul id="seats" class="seats" aria-label="I quattro posti in auto"></ul>
       </div>
+      <p id="seat-hint" class="fine"></p>
+      <p id="seat-ground" class="seat-ground"></p>
+      <p id="seat-status" class="status" role="status"></p>
       <p id="votes-note" class="fine">Voti e posti li vediamo tutti e quattro.</p>
       <div id="vote-results" class="vote-results" hidden>
         <h3>Come sta andando</h3>

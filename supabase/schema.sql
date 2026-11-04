@@ -76,6 +76,13 @@ create table if not exists votes (
   updated_at timestamptz not null default now()
 );
 
+-- One row per seat taken: the keys let nobody share a seat, or hold two.
+create table if not exists seats (
+  seat integer primary key check (seat between 1 and 4),
+  person text not null unique references people (id) on delete cascade,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists proposals (
   id uuid primary key default gen_random_uuid(),
   person text not null references people (id) on delete cascade,
@@ -91,7 +98,8 @@ alter table proposals enable row level security;
 alter table past_trips enable row level security;
 alter table photos enable row level security;
 alter table houses enable row level security;
-revoke all on people, quotes, votes, proposals, past_trips, photos, houses from public, anon, authenticated;
+alter table seats enable row level security;
+revoke all on people, quotes, votes, proposals, past_trips, photos, houses, seats from public, anon, authenticated;
 
 create or replace function hash_code(p_code text) returns text
 language sql immutable set search_path = public, pg_temp as $$
@@ -148,6 +156,7 @@ begin
     'votes', (select coalesce(json_agg(json_build_object(
       'person', person, 'ranking', ranking, 'attending', attending
     ) order by updated_at desc), '[]'::json) from votes),
+    'seats', (select coalesce(json_agg(json_build_object('seat', seat, 'person', person) order by seat), '[]'::json) from seats),
     'proposals', (select coalesce(json_agg(json_build_object(
       'id', id, 'person', person, 'text', body, 'status', status, 'createdAt', created_at
     ) order by created_at desc), '[]'::json) from proposals)
@@ -191,6 +200,33 @@ declare
 begin
   insert into votes (person, ranking, attending) values (me.id, p_ranking, p_attending)
   on conflict (person) do update set ranking = excluded.ranking, attending = excluded.attending, updated_at = now();
+  if not p_attending then
+    delete from seats where person = me.id;
+  end if;
+end;
+$$;
+
+-- A null seat gets up. A seat already taken stays with whoever took it first.
+create or replace function choose_seat(p_code text, p_seat integer) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  me people := person_from_code(p_code);
+begin
+  if p_seat is null then
+    delete from seats where person = me.id;
+    return;
+  end if;
+  if exists (select 1 from votes where person = me.id and not attending) then
+    raise exception 'not_attending';
+  end if;
+  if exists (select 1 from seats where seat = p_seat and person <> me.id) then
+    raise exception 'seat_taken';
+  end if;
+  delete from seats where person = me.id;
+  insert into seats (seat, person) values (p_seat, me.id);
+exception
+  when unique_violation then
+    raise exception 'seat_taken';
 end;
 $$;
 
@@ -341,12 +377,12 @@ $$;
 
 revoke all on function hash_code(text), person_from_code(text) from public, anon, authenticated;
 revoke all on function login(text), read_all(text), read_photo(text, text), save_quote(text, jsonb), delete_quote(text, uuid),
-  save_vote(text, text[], boolean), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
+  save_vote(text, text[], boolean), choose_seat(text, integer), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
   save_house(text, jsonb), delete_house(text, uuid), set_official_house(text, uuid),
   set_person(text, text, text, text, integer), set_past_trip(text, integer, text, numeric),
   save_photo(text, text, integer, text, integer, integer, integer, text, text) from public, authenticated;
 grant execute on function login(text), read_all(text), read_photo(text, text), save_quote(text, jsonb), delete_quote(text, uuid),
-  save_vote(text, text[], boolean), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
+  save_vote(text, text[], boolean), choose_seat(text, integer), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
   save_house(text, jsonb), delete_house(text, uuid), set_official_house(text, uuid),
   set_person(text, text, text, text, integer), set_past_trip(text, integer, text, numeric),
   save_photo(text, text, integer, text, integer, integer, integer, text, text) to anon;
