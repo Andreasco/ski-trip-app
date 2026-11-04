@@ -48,6 +48,11 @@ assert.ok(others(tignes).every((d) => tignes.trip.km > d.trip.km), 'review: lege
 assert.ok(others(alpe).every((d) => alpe.pass[4] < d.pass[4]), 'review: legend "la blu lo skipass meno caro" and the Alpe title');
 assert.ok(others(serre).every((d) => serre.trip.km < d.trip.km), 'review: legend "la verde il tragitto più corto" and the Serre title');
 assert.ok(others(serre).every((d) => serre.top < d.top), 'review: Serre "la quota massima più bassa"');
+assert.ok(others(tignes).every((d) => tignes.top > d.top), 'review: Tignes "la quota più alta delle quattro"');
+assert.ok(others(thorens).every((d) => thorens.ratings.ski > d.ratings.ski), 'review: Val Thorens "i voti più alti delle quattro"');
+for (const d of [alpe, serre]) assert.ok(d.upside.includes(`pedaggi da ${d.trip.tolls} €`), `review: ${d.id} pros state its tolls`);
+assert.ok(serre.upside.includes(serre.drive), "review: Serre pros state its drive");
+assert.ok(TRIP.destinations.every((d) => d.upside && d.downside), "review: every destination has pros and cons");
 assert.ok(others(thorens).every((d) => thorens.km > d.km), 'review: Val Thorens "il comprensorio più grande delle quattro"');
 assert.ok(others(serre).every((d) => serre.ratings.apres < d.ratings.apres), 'review: Serre "il più tranquillo delle quattro"');
 assert.ok(others(thorens).every((d) => thorens.ratings.apres > d.ratings.apres), 'review: Val Thorens title "la festa più forte"');

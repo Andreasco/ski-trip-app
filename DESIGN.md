@@ -414,16 +414,16 @@ The closing image, painted from an authored drawing with a jagged night range. T
 Four seats inside a car seen from above, painted at runtime with the panorama brush from an authored drawing: body, windscreen, rear window, mirrors and wheels. Two columns of 10px seats in snow with paper grain sit on top, each with its status beneath. A seat turns ink with dark board grain and white text once its person is aboard. Until the painting lands, or if it fails, the car is a plain deep rounded block with its seats. The painting then settles in over .4s, like the bar scene, and lands at once under reduced motion.
 
 ### Live Total
-A paper strip with a 4px double ink rule, sticky at the top of the Conto band. It holds the destination and days at 0.9375rem, the total in Bowlby One at 1.5rem, and the words "a testa".
+A paper strip with a 4px double ink rule, sticky through the budget block and no further. It holds the destination and days at 0.9375rem, the total in Bowlby One at 1.5rem, and the words "a testa".
 
 ### Quote Calculator
-Number fields grouped by topic in fieldsets with a Bowlby One legend at 1.2rem. Each group is a two-column grid at every width, with a 12px gap, labels at 0.9375rem and inputs aligned to the bottom so uneven labels keep them level.
+The answer comes first: destination rows, one control holding disc, name, published figure per head and lodging, then the ledger with its "Voce / A testa" header and the verdict. The number fields stay folded in a native details under "Cambia le voci", grouped by who pays (the group, split among everyone, per head) in fieldsets with a Bowlby One legend at 1.2rem. Each group is a two-column grid at every width, with a 12px gap, labels at 0.9375rem and inputs aligned to the bottom so uneven labels keep them level.
 
 ### Lodging Row
-A saved-quote row, grouped under its destination's disc. It adds the zone, who found it, a source link only for https addresses, and the whole trip's cost per person in place of the quote total. The one that sets the published figures carries an inline deep star and the words "Alloggio di riferimento". Only the organizer can set it; the author and the organizer can delete.
+A paper row with a 4px double ink rule, grouped under its destination's disc. It adds the zone, who found it, a source link only for https addresses, the lodging's own total price on the right, and the whole trip's cost per person in a bold line. Every euro in bold states its base. The form to add one stays folded under the list. Deleting asks for confirmation first, in the browser's own dialog. Folded blocks are a native details whose summary is a 52px outlined bar with an inline chevron. The one that sets the published figures carries an inline deep star and the words "Alloggio di riferimento". Only the organizer can set it; the author and the organizer can delete.
 
 ### Saved Quote Row
-A paper row with a 4px double ink rule on the deep band, 12px inset. Name and note on the left, total in Bowlby One at 1.4rem on the right, and a row of 46px small buttons beneath.
+A plain snow row on the deep band, 12px inset, quieter than a lodging because it is a version of the trip and not an ingredient of it. Name, stay and note on the left, total per head in Bowlby One at 1.4rem on the right, and a row of 46px small buttons beneath.
 
 ### Vote Tally
 Hidden until the first vote. Destinations in score order, each with disc, name and bold points over a sky hairline. Beneath it, a plain list states each person's ranking in words, or that they pass.

@@ -80,7 +80,7 @@
         <ul class="piste-key" aria-label="Legenda delle piste"></ul>
       </div>
       <div id="dest-list"></div>
-      <p class="fine">I voti sono miei, non ufficiali: pensati per chi vuole sciare tutto il giorno e trovare movimento dopo. Panorami dipinti via codice su dati di elevazione reali: illustrazioni, non in scala.</p>
+      <p class="fine">I voti non sono ufficiali: sono pensati per chi vuole sciare tutto il giorno e trovare movimento dopo. Panorami dipinti via codice su dati di elevazione reali: illustrazioni, non in scala.</p>
     </section>
 
     <section id="volo" class="section section-sky">
@@ -97,80 +97,92 @@
 
     <section id="conto" class="section section-deep">
       <h2>Il conto, senza sconti</h2>
-      <p class="measure">Il preventivo del viaggio, voce per voce: benzina e pedaggi compresi. Cambia quello che vuoi, salvalo e confrontalo con gli altri.</p>
-      <p id="live-total" class="live-total"></p>
-      <p id="budget-status" class="deep-note budget-status" role="status"></p>
-      <form id="budget-form" class="budget">
-        <fieldset id="budget-dest" class="choices"><legend>Meta</legend></fieldset>
-        <fieldset class="choices">
-          <legend>Giorni di sci</legend>
-          <label class="choice"><input type="radio" name="days" value="4" checked>4 giorni</label>
-          <label class="choice"><input type="radio" name="days" value="5">5 giorni</label>
-        </fieldset>
-        <div id="budget-fields" class="budget-fields"></div>
-        <button id="budget-reset" type="button" class="btn btn-quiet">Riporta ai valori iniziali</button>
-      </form>
-      <table class="ledger">
-        <caption id="ledger-caption"></caption>
-        <tbody id="ledger-body"></tbody>
-        <tfoot><tr><th id="ledger-total-label" scope="row">Totale a testa</th><td id="ledger-total"></td></tr><tr class="ledger-group"><th scope="row">Totale del gruppo</th><td id="ledger-group"></td></tr></tfoot>
-      </table>
-      <div id="gauge" class="gauge" aria-hidden="true"><span class="band"></span><span class="mark"></span><span id="gauge-low" class="gauge-label gauge-low"></span><span id="gauge-high" class="gauge-label gauge-high"></span></div>
-      <p id="verdict" class="verdict" role="status"></p>
-      <h3>Le quattro mete a confronto</h3>
-      <ul id="compare" class="compare"></ul>
-      <p id="compare-note" class="deep-note"></p>
-      <h3>Salva questo preventivo</h3>
-      <form id="quote-form" class="quote-form">
-        <div class="field">
-          <label for="quote-note">Una nota, se vuoi</label>
-          <input id="quote-note" type="text" maxlength="120" placeholder="Es. versione con due auto">
+      <p class="measure">I conti sono già fatti: tocca una meta per vedere ogni voce. Tutte le cifre sono a testa, benzina e pedaggi compresi; solo gli alloggi hanno il prezzo totale.</p>
+      <div id="budget-form" class="budget">
+        <p id="live-total" class="live-total"></p>
+        <p id="budget-status" class="deep-note budget-status" role="status" tabindex="-1"></p>
+        <div class="budget-pick">
+          <fieldset id="compare" class="compare"><legend>Le quattro mete a confronto, a testa</legend></fieldset>
+          <p id="compare-note" class="deep-note"></p>
+          <fieldset class="choices">
+            <legend>Giorni di sci</legend>
+            <label class="choice"><input type="radio" name="days" value="4" checked>4 giorni</label>
+            <label class="choice"><input type="radio" name="days" value="5">5 giorni</label>
+          </fieldset>
         </div>
-        <button type="submit" class="btn btn-go">Salva il preventivo</button>
-      </form>
-      <p id="quote-status" class="deep-note" role="status"></p>
-      <h3>I preventivi salvati</h3>
-      <p id="quote-empty" class="deep-note">Ancora nessuno: salva il primo qui sopra.</p>
-      <ul id="quote-list" class="quote-list"></ul>
-      <p id="quotes-note" class="deep-note">Li vediamo tutti e quattro.</p>
+        <div class="budget-bill">
+          <table class="ledger">
+            <caption id="ledger-caption"></caption>
+            <thead><tr><th scope="col">Voce</th><th scope="col">A testa</th></tr></thead>
+            <tbody id="ledger-body"></tbody>
+            <tfoot><tr><th id="ledger-total-label" scope="row">Totale a testa</th><td id="ledger-total"></td></tr><tr class="ledger-group"><th scope="row">Totale del gruppo</th><td id="ledger-group"></td></tr></tfoot>
+          </table>
+          <div id="gauge" class="gauge" aria-hidden="true"><span class="band"></span><span class="mark"></span><span id="gauge-low" class="gauge-label gauge-low"></span><span id="gauge-high" class="gauge-label gauge-high"></span></div>
+          <p id="verdict" class="verdict" role="status"></p>
+        </div>
+        <details id="budget-edit" class="unfold">
+          <summary>Cambia le voci e salva un preventivo<svg class="fold-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg></summary>
+          <div id="budget-fields" class="budget-fields"></div>
+          <button id="budget-reset" type="button" class="btn btn-quiet">Rimetti i valori iniziali</button>
+          <h3>Salva questo preventivo</h3>
+          <p id="quote-what" class="deep-note"></p>
+          <form id="quote-form" class="quote-form">
+            <div class="field">
+              <label for="quote-note">Una nota, se vuoi</label>
+              <input id="quote-note" type="text" maxlength="120" autocomplete="off" placeholder="Es. versione con due auto">
+            </div>
+            <button type="submit" class="btn btn-go">Salva il preventivo</button>
+          </form>
+          <p id="quote-status" class="deep-note" role="status"></p>
+        </details>
+      </div>
       <h3>Gli alloggi trovati</h3>
-      <p id="houses-note" class="deep-note">Hai trovato una casa? Inseriscila qui: la vediamo tutti e il conto si fa da solo.</p>
-      <form id="house-form" class="quote-form house-form">
-        <div class="field">
-          <label for="house-dest">Meta</label>
-          <select id="house-dest"></select>
-        </div>
-        <div class="field">
-          <label for="house-name">Nome dell'alloggio</label>
-          <input id="house-name" type="text" maxlength="80" required>
-        </div>
-        <div class="field">
-          <label for="house-zone">Zona, se vuoi</label>
-          <input id="house-zone" type="text" maxlength="80" placeholder="Es. vicino agli impianti">
-        </div>
-        <div class="field">
-          <label for="house-url">Link all'annuncio, se vuoi</label>
-          <input id="house-url" type="url" maxlength="500" pattern="https://.*" placeholder="https://" title="Un indirizzo che inizia con https://">
-        </div>
-        <div class="fields">
-          <div class="field">
-            <label for="house-nights">Notti</label>
-            <input id="house-nights" type="number" inputmode="numeric" min="1" max="30" step="1" value="3" required>
-          </div>
-          <div class="field">
-            <label for="house-total">Prezzo totale, €</label>
-            <input id="house-total" type="number" inputmode="decimal" min="1" max="100000" step="0.01" required>
-          </div>
-        </div>
-        <div class="field">
-          <label for="house-note">Una nota, se vuoi</label>
-          <input id="house-note" type="text" maxlength="200" placeholder="Es. tassa di soggiorno esclusa">
-        </div>
-        <button type="submit" class="btn btn-go">Salva l'alloggio</button>
-      </form>
-      <p id="house-status" class="deep-note" role="status" tabindex="-1"></p>
-      <p id="house-empty" class="deep-note">Ancora nessuno: inserisci il primo qui sopra.</p>
+      <p id="houses-note" class="deep-note">L'alloggio con la stella fa il conto della sua meta; se non c'è, vale il più economico. I prezzi sono il totale dell'alloggio, non a testa.</p>
+      <p id="house-status" class="deep-note house-status" role="status" tabindex="-1"></p>
+      <p id="house-empty" class="deep-note">Ancora nessuno: aggiungi il primo qui sotto.</p>
       <div id="house-list" class="houses"></div>
+      <details id="house-add" class="unfold">
+        <summary>Hai trovato una casa? Aggiungila<svg class="fold-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg></summary>
+        <form id="house-form" class="quote-form house-form">
+          <div class="field">
+            <label for="house-dest">Meta</label>
+            <select id="house-dest"></select>
+          </div>
+          <div class="field">
+            <label for="house-name">Nome dell'alloggio</label>
+            <input id="house-name" type="text" maxlength="80" autocomplete="off" required>
+          </div>
+          <div class="field">
+            <label for="house-zone">Zona, se vuoi</label>
+            <input id="house-zone" type="text" maxlength="80" autocomplete="off" placeholder="Es. vicino agli impianti">
+          </div>
+          <div class="field">
+            <label for="house-url">Link all'annuncio, se vuoi</label>
+            <input id="house-url" type="url" maxlength="500" autocomplete="off" pattern="https://.*" placeholder="https://" title="Un indirizzo che inizia con https://">
+          </div>
+          <div class="fields">
+            <div class="field">
+              <label for="house-nights">Notti</label>
+              <input id="house-nights" type="number" inputmode="numeric" min="1" max="30" step="1" value="3" required>
+            </div>
+            <div class="field">
+              <label for="house-total">Prezzo totale dell'alloggio, €</label>
+              <input id="house-total" type="number" inputmode="decimal" min="1" max="100000" step="0.01" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="house-note">Una nota, se vuoi</label>
+            <input id="house-note" type="text" maxlength="200" autocomplete="off" placeholder="Es. tassa di soggiorno esclusa">
+          </div>
+          <button type="submit" class="btn btn-go">Salva l'alloggio</button>
+        </form>
+      </details>
+      <h3>I preventivi salvati</h3>
+      <p id="quote-empty" class="deep-note">Ancora nessuno: si salvano da "Cambia le voci".</p>
+      <p id="quote-list-status" class="deep-note house-status" role="status" tabindex="-1"></p>
+      <ul id="quote-list" class="quote-list"></ul>
+      <p id="quotes-note" class="deep-note">Preventivi e alloggi li vediamo tutti e quattro.</p>
+      <p class="hand conto-end">Se nessuna ti torna, <a href="#proposal-form">scrivilo in una proposta</a>: il piano si cambia.</p>
     </section>
 
     <section id="obiezioni" class="section">
