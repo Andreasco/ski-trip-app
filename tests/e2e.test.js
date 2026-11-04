@@ -1014,7 +1014,7 @@ function startServer(db, net) {
     if (SHOTS) {
       await js(`document.getElementById("gate-submit").click(); await $until(() => document.getElementById("gate-form").classList.contains("is-stamped")); await new Promise((r) => setTimeout(r, 300));`);
       await shot("g04-stamped");
-      await sleep(5700);
+      await sleep(4700);
       await shot("g05-turnstile-opening");
       await sleep(3600);
       await shot("g06-after-the-gate");
@@ -1032,7 +1032,7 @@ function startServer(db, net) {
         await new Promise((r) => setTimeout(r, 60));
       }
       return { stamped: seen.some((s) => s.stamped), opened: seen.some((s) => s.open), gone: !seen[seen.length - 1].shown, locked: document.documentElement.classList.contains("locked"), wish, held: Math.round(openedAt - stampedAt) }`);
-    check("the wish stays long enough to read", opening.wish === "Buona discesa" && opening.held >= 4300, opening);
+    check("the wish stays long enough to read", opening.wish === "Buona discesa" && opening.held >= 3300, opening);
     check("the stamp, then the turnstile, then the page", opening.stamped && opening.opened && opening.gone && !opening.locked, opening);
     await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
 

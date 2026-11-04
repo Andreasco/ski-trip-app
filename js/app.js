@@ -795,7 +795,7 @@
       form.classList.add("is-stamped");
       button.textContent = "Buona discesa";
       // Long enough to enjoy the stamp and the wish before the turnstile opens.
-      await sleep(4500);
+      await sleep(3500);
       gate.classList.add("is-open");
       document.documentElement.classList.remove("locked");
       $("#top h1").focus({ preventScroll: true });
