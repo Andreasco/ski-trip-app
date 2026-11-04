@@ -585,9 +585,14 @@ function startServer(db, net) {
     // Lodgings, shared between people
     await login("bravo");
     const houseCount = () => js(`return document.querySelectorAll(".house-list li").length`);
-    check("every destination's lodging is listed", (await houseCount()) === 4);
-    check("lodgings come grouped by destination", (await js(`return [...document.querySelectorAll("#house-list h4")].map((h) => h.textContent.trim()).join()`)) === TRIP.destinations.map((d) => d.name).join());
-    check("the star shows to everyone", (await js(`return document.querySelectorAll(".house-official").length`)) === 4);
+    for (const d of TRIP.destinations) {
+      await js(`$pick("dest", "${d.id}");`);
+      const shown = await js(`return { heads: [...document.querySelectorAll("#house-list h4")].map((h) => h.textContent.trim()).join(), rows: [...document.querySelectorAll(".house-list strong")].map((s) => s.textContent).join(), stars: document.querySelectorAll(".house-official").length }`);
+      check(`only the ${d.id} lodgings show when ${d.id} is selected`, shown.heads === d.name && shown.rows === `Casa ${d.id}`, shown);
+      check(`the star shows to everyone on ${d.id}`, shown.stars === 1, shown);
+    }
+    await js(`$pick("dest", "thorens");`);
+    check("a destination link from its card moves the lodgings too", await js(`document.querySelector('#tignes [data-budget="tignes"]').click(); await new Promise((r) => setTimeout(r, 50)); const head = $t("#house-list h4"); $pick("dest", "thorens"); return head.includes("Tignes")`));
     check("only the organizer can star", await js(`return !document.querySelector("[data-star]")`));
     check("nobody else's lodging can be deleted", await js(`return !document.querySelector("[data-drop]")`));
     check("an empty lodging form stays unsent", await js(`return !document.getElementById("house-form").checkValidity()`));
@@ -601,6 +606,7 @@ function startServer(db, net) {
       const f = document.getElementById("house-form"); f.requestSubmit(); f.requestSubmit();
       await $until(() => $t("#house-status"));`);
     check("a lodging is saved once", (await db.query("select 1 from houses where total = 400")).rows.length === 1);
+    check("saving moves the view to the destination added to", await js(`return document.querySelector('input[name="dest"]:checked').value === "alpe" && $t("#house-list h4").includes("Alpe") && $t("#ledger-caption").includes("Alpe")`));
     check("a lodging's fields are escaped", await js(`return !window.__xss && !document.querySelector("#house-list img, #house-list b, #house-list i, #house-list script")`));
     check("the form clears after saving", (await js(`return document.getElementById("house-name").value`)) === "");
     check("a lodging can be deleted by its author", (await js(`return document.querySelectorAll("[data-drop]").length`)) === 1);
@@ -654,6 +660,7 @@ function startServer(db, net) {
     // Star, stand-in and removal: Bravo's lodging is cheapest per night, a dearer unstarred one is added too.
     const dearer = await rpc(db, "save_house", { p_code: CODES.charlie, p_house: { dest: "alpe", name: "Casa cara", nights: 3, total: 5000 } });
     await login("alfa");
+    await js(`$pick("dest", "alpe");`);
     const bravoRow = `[...document.querySelectorAll("[data-star]")].find((x) => x.closest("li").textContent.includes("Trovato da Bravo"))`;
     check("the organizer's action says what it does", (await js(`return ${bravoRow}.textContent`)) === "Segna come riferimento");
     await js(`${bravoRow}.click(); await $until(() => $t("#house-status").includes("riferimento"));`);
@@ -661,14 +668,14 @@ function startServer(db, net) {
     check("the star sets the published figures", (await alpeSign()).includes(`stima ${euro(starredTotal)}`), await alpeSign());
     check("the star moves, leaving one per destination", (await db.query("select 1 from houses where dest = 'alpe' and official")).rows.length === 1);
     check("the star keeps focus on the row just pressed", await js(`return !!document.activeElement.dataset.star`), await js(`return document.activeElement.id || document.activeElement.tagName`));
-    await js(`${bravoRow}.click(); await $until(() => document.querySelectorAll(".house-official").length === 3);`);
+    await js(`${bravoRow}.click(); await $until(() => document.querySelectorAll(".house-official").length === 0);`);
     check("without a star the cheapest per night stands in", (await alpeSign()).includes(`stima ${euro(starredTotal)}`), await alpeSign());
     const bravoId = (await db.query("select id from houses where total = 400")).rows[0].id;
     await rpc(db, "set_official_house", { p_code: CODES.alfa, p_id: bravoId });
     await login("bravo");
-    await js(`const row = document.querySelector("[data-drop]").closest("li"); row.querySelector("[data-use]").click(); await new Promise((r) => setTimeout(r, 100));`);
+    await js(`$pick("dest", "alpe"); const row = document.querySelector("[data-drop]").closest("li"); row.querySelector("[data-use]").click(); await new Promise((r) => setTimeout(r, 100));`);
     check("the message about a trial is there before its lodging goes", (await js(`return $t("#budget-status")`)).includes("è nel conto"));
-    await js(`document.querySelector("[data-drop]").click(); await $until(() => document.querySelectorAll(".house-list li").length === 5);`);
+    await js(`document.querySelector("[data-drop]").click(); await $until(() => document.querySelectorAll(".house-list li").length === 2);`);
     check("deleting the lodging being tried clears the message", (await js(`return $t("#budget-status")`)) === "", await js(`return $t("#budget-status")`));
     check("a friend can delete their own starred lodging", (await db.query("select 1 from houses where total = 400")).rows.length === 0);
     check("then the cheapest of the others stands in", (await alpeSign()).includes(alpePublished), await alpeSign());
@@ -690,8 +697,9 @@ function startServer(db, net) {
     await go();
     const partial = await js(`await $until(() => $t("#cost-objection").includes("manca")); const rows = [...document.querySelectorAll("#compare .choice")]; const row = rows[${TRIP.destinations.indexOf(dest("serre"))}];
       $pick("dest", "serre"); await new Promise((r) => setTimeout(r, 50));
-      return { number: row.querySelector("strong").textContent, label: row.querySelector("small").textContent, sign: document.querySelectorAll(".sign-data")[${TRIP.destinations.indexOf(dest("serre"))}].textContent, objection: $t("#cost-objection"), live: $t("#live-total small"), total: $t("#ledger-total-label"), verdict: $t("#verdict"), gauge: document.getElementById("gauge").hidden }`);
+      return { number: row.querySelector("strong").textContent, label: row.querySelector("small").textContent, sign: document.querySelectorAll(".sign-data")[${TRIP.destinations.indexOf(dest("serre"))}].textContent, objection: $t("#cost-objection"), live: $t("#live-total small"), total: $t("#ledger-total-label"), verdict: $t("#verdict"), gauge: document.getElementById("gauge").hidden, empty: document.getElementById("house-empty").hidden ? "" : $t("#house-empty") }`);
     check("the gauge places no mark for a total without a lodging", partial.gauge, partial);
+    check("a destination with no lodging says so by name", partial.empty.includes("a Serre Chevalier"), partial);
     check("no price is shown for a destination without a lodging", partial.number === "" && partial.label === "Casa da scegliere" && partial.sign.includes("casa da scegliere"), partial);
     check("the objection says which destinations it counts", partial.objection.includes("manca ancora per Serre Chevalier") && !partial.objection.includes("tutte"), partial);
     check("the calculator says the total has no lodging", partial.live.includes("senza alloggio") && partial.total.includes("senza alloggio") && partial.verdict.includes("Scegli un alloggio"), partial);
