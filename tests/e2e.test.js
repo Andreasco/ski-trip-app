@@ -1,6 +1,6 @@
 // End-to-end check of the real page in headless Edge, against supabase/schema.sql on a real Postgres.
 // First time: (cd tests && npm install). Run with: node tests/e2e.test.js
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
@@ -52,6 +52,7 @@ const expected = (d, days, over = {}) => tripCost({
 }).total;
 
 const HELPERS = `
+  window.confirm = () => true;
   window.$t = (s) => document.querySelector(s)?.textContent.trim();
   window.$set = (id, value) => {
     const el = document.getElementById(id);
@@ -303,6 +304,9 @@ function startServer(db, net) {
   await db.exec("delete from proposals; delete from quotes; delete from votes;");
 
   const server = await startServer(db, net);
+  // A browser left on this port would answer in place of the fresh one, with its old caches.
+  const leftover = await fetch(`http://127.0.0.1:${CDP}/json`).then(() => true, () => false);
+  if (leftover) throw new Error(`port ${CDP} is busy: a browser is left over from another run`);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "discesa-e2e-"));
   const edge = spawn(EDGE, ["--headless=new", `--remote-debugging-port=${CDP}`, `--user-data-dir=${profile}`, "--no-first-run", "--enable-unsafe-swiftshader", "about:blank"], { stdio: "ignore" });
   try {
@@ -477,6 +481,7 @@ function startServer(db, net) {
     TRIP.destinations.forEach((d) => {
       const card = cards[d.id];
       check(`${d.id} shows its venues, each with a link`, card.venues.map(([name]) => name).join() === d.apres.venues.map((v) => v.name).join() && card.venues.every(([, href, rel]) => href.startsWith("https://") && rel === "noopener"), card.venues);
+      check(`${d.id} states the pros before the cons`, card.text.indexOf(`I pro: ${d.upside}`) > 0 && card.text.indexOf(`I pro: ${d.upside}`) < card.text.indexOf(`I contro: ${d.downside}`), d.id);
       check(`${d.id} says how the evening works`, card.text.includes("Come si fa après-ski") && card.text.includes(d.apres.how), d.id);
       const vote = (n) => `${String(n).replace(".", ",")}/10`;
       check(`${d.id} shows both ratings`, card.facts.includes(`Sci ${vote(d.ratings.ski)}`) && card.facts.includes(`Après-ski ${vote(d.ratings.apres)}`), card.facts);
@@ -484,6 +489,14 @@ function startServer(db, net) {
     check("half points read in Italian", cards.tignes.facts.includes("Sci 9,5/10") && cards.alpe.facts.includes("Après-ski 8,5/10"), cards.tignes.facts);
     const dated = await js(`return document.documentElement.outerHTML`);
     check("the new dates are on the page, the old ones nowhere", dated.includes("Dal 4 al 7 febbraio 2027") && !/18 al 21|Cervin|Zermatt|Orelle/.test(dated), dated.match(/.{30}(18 al 21|Cervin|Zermatt|Orelle).{30}/)?.[0]);
+    const fold = await js(`const form = document.getElementById("budget-form"); const after = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return { closed: !document.getElementById("budget-edit").open && !document.getElementById("house-add").open, order: after(document.getElementById("compare"), document.querySelector(".ledger")) && after(document.querySelector(".ledger"), document.getElementById("budget-fields")), listFirst: after(document.getElementById("house-list"), document.getElementById("house-form")), lodgingsFirst: after(document.getElementById("house-list"), document.getElementById("quote-list")), fieldVisible: document.getElementById("people").checkVisibility(), head: $t(".ledger thead"), legends: [...document.querySelectorAll("#budget-fields legend")].map((l) => l.textContent).join() }`);
+    check("the answer comes before the controls, which stay folded", fold.closed && fold.order && !fold.fieldVisible, fold);
+    check("lodgings come before their form and before the saved quotes", fold.listFirst && fold.lodgingsFirst, fold);
+    check("the ledger says each amount is per head", fold.head.includes("A testa"), fold);
+    check("fields are grouped by who pays", fold.legends === "Il gruppo,Si divide tra tutti,A testa", fold);
+    const stays = await js(`return [...document.querySelectorAll("#compare .compare-stay")].map((e) => e.textContent)`);
+    TRIP.destinations.forEach((d, i) => check(`comparison names the ${d.id} lodging and its total`, stays[i] === `Casa ${d.id}, ${euro(HOUSES[d.id])} in totale`, stays[i]));
     check("nothing of the removed pass option is left", await js(`return !document.getElementById("pass-option")`));
 
     // Calculator
@@ -530,7 +543,7 @@ function startServer(db, net) {
       const b = document.querySelector("#quote-form button"); const f = document.getElementById("quote-form");
       f.requestSubmit(); f.requestSubmit();
       const busy = { disabled: b.disabled, label: b.textContent };
-      await $until(() => document.querySelector(".quote-total")); await $until(() => !b.disabled);
+      await $until(() => document.querySelector("#quote-list .quote-total")); await $until(() => !b.disabled);
       return { ...busy, after: b.textContent };`);
     check("a save shows it is working", pending.disabled && pending.label === "Salvo…" && pending.after === "Salva il preventivo", pending);
     check("trying out figures does not change the published hero", (await js(`return $t("#hero-cost")`)) === heroCost, await js(`return $t("#hero-cost")`));
@@ -541,13 +554,15 @@ function startServer(db, net) {
     check("a double tap saves once", (await db.query("select 1 from quotes")).rows.length === 1, (await db.query("select count(*) from quotes")).rows);
     const tig = dest("tignes");
     const savedTotal = euro(expected(tig, 5, { cars: 2, km: 300 }));
-    check("a quote is saved with its total", (await js(`return $t(".quote-total")`)) === savedTotal, await js(`return $t(".quote-total")`));
+    const quoteFigure = () => js(`return document.querySelector("#quote-list .quote-total").firstChild.textContent`);
+    check("a quote is saved with its total", (await quoteFigure()) === savedTotal, await quoteFigure());
+    check("a quote's total says what it is", (await js(`return $t("#quote-list .quote-total small")`)) === "a testa, tutto il viaggio");
     check("a quote note is escaped", await js(`return !window.__xss && !document.querySelector("#quote-list img")`));
     check("the note field empties", (await js(`return document.getElementById("quote-note").value`)) === "");
     check("the author can delete it", await js(`return !!document.querySelector("[data-delete]")`));
     await login("charlie");
     check("another person sees the quote", (await js(`return $t("#quote-list strong")`)).startsWith("Bravo: Tignes / Val d'Isère, 5 giorni"), await js(`return $t("#quote-list strong")`));
-    check("the same total for everyone", (await js(`return $t(".quote-total")`)) === savedTotal);
+    check("the same total for everyone", (await quoteFigure()) === savedTotal);
     check("only the author can delete", await js(`return !document.querySelector("[data-delete]")`));
     await js(`document.getElementById("quote-list").scrollIntoView({ block: "center" });`);
     await settle();
@@ -585,16 +600,21 @@ function startServer(db, net) {
     check("a lodging can be deleted by its author", (await js(`return document.querySelectorAll("[data-drop]").length`)) === 1);
     const mine = await js(`const li = document.querySelector("[data-drop]").closest("li"); return { text: li.innerText.replace(/\\s+/g, " "), total: li.querySelector(".quote-total").firstChild.textContent, link: li.querySelector("a")?.href, rel: li.querySelector("a")?.rel }`);
     check("a lodging states who found it", mine.text.includes("Trovato da Bravo"), mine);
-    check("a lodging's trip cost is brought to the trip's nights", mine.total === euro(expected(dest("alpe"), 4, { flatTotal: 300 })), mine);
+    const refused = await js(`window.confirm = (m) => { window.__asked = m; return false; }; const n = document.querySelectorAll(".house-list li").length; document.querySelector("[data-drop]").click(); await new Promise((r) => setTimeout(r, 200)); const after = document.querySelectorAll(".house-list li").length; window.confirm = () => true; return { n, after, asked: window.__asked }`);
+    check("deleting a lodging asks first, and no means no", refused.n === refused.after && refused.asked.includes("Non si può annullare"), refused);
+    check("a lodging shows its own total price, not a share", mine.total === euro(400) && mine.text.includes("in totale, 4 notti"), mine);
+    check("a lodging's trip cost is brought to the trip's nights", mine.text.includes(`tutto il viaggio costa ${euro(expected(dest("alpe"), 4, { flatTotal: 300 }))} a testa`), mine);
     check("a lodging for other nights says it was brought to the trip's", mine.text.includes("riportato a 3 notti"), mine);
+    check("a lodging form starts on the destination being viewed", await js(`document.getElementById("house-add").open = false; $pick("dest", "serre"); document.getElementById("house-add").open = true; await new Promise((r) => setTimeout(r, 80)); const v = document.getElementById("house-dest").value; document.getElementById("house-add").open = false; $pick("dest", "alpe"); return v === "serre"`));
     check("a lodging's link stays safe", mine.link?.startsWith("https://example.com/") && mine.rel.includes("noopener") && mine.rel.includes("noreferrer"), mine);
     const alpeSign = () => js(`return document.querySelectorAll(".sign-data")[${TRIP.destinations.indexOf(dest("alpe"))}].textContent`);
     const alpePublished = `stima ${euro(expected(dest("alpe"), 4))}`;
     check("a star beats a cheaper lodging", (await alpeSign()).includes(alpePublished), await alpeSign());
     const untouched = await js(`return [...document.querySelectorAll(".sign-data")].map((e) => e.textContent).join()`);
-    const publishedCompare = await js(`return [...document.querySelectorAll("#compare li")].map((l) => l.innerText).join()`);
+    const publishedCompare = await js(`return [...document.querySelectorAll("#compare .choice")].map((l) => l.innerText).join()`);
     await js(`document.querySelector("[data-drop]").closest("li").querySelector("[data-use]").click(); await new Promise((r) => setTimeout(r, 100));`);
     check("use in the quote fills the calculator", (await js(`return document.querySelector('input[name="dest"]:checked').value + document.querySelector('input[name="days"]:checked').value + document.getElementById("nights").value + document.getElementById("flat").value`)) === "alpe54400", await js(`return document.getElementById("nights").value + "/" + document.getElementById("flat").value`));
+    check("trying a lodging opens the fields", await js(`return document.getElementById("budget-edit").open`));
     check("use in the quote prices it", (await js(`return $t("#ledger-total")`)) === euro(expected(dest("alpe"), 5, { nights: 4, flatTotal: 400 })), await js(`return $t("#ledger-total")`));
     check("the bill names the lodging being tried", (await js(`return document.getElementById("ledger-body").textContent`)).includes("Zona"), await js(`return document.getElementById("ledger-body").textContent`));
     check("the bill links the lodging being tried", await js(`return !!document.querySelector("#ledger-body a[href^='https://example.com/']")`));
@@ -603,12 +623,12 @@ function startServer(db, net) {
     check("a lodging being tried follows the days", (await js(`return $t("#ledger-total")`)) === euro(expected(dest("alpe"), 4, { flatTotal: 300 })), await js(`return $t("#ledger-total")`));
     check("the flat field follows it, in cents", (await js(`return document.getElementById("flat").value`)) === "300");
     check("trying a lodging leaves the published figures alone", (await js(`return [...document.querySelectorAll(".sign-data")].map((e) => e.textContent).join()`)) === untouched);
-    check("trying a lodging leaves the comparison alone", (await js(`return [...document.querySelectorAll("#compare li")].map((l) => l.innerText).join()`)) === publishedCompare);
+    check("trying a lodging leaves the comparison alone", (await js(`return [...document.querySelectorAll("#compare .choice")].map((l) => l.innerText).join()`)) === publishedCompare);
     await js(`$set("flat", "111");`);
     check("typing a price overrides the lodging being tried", (await js(`return $t("#ledger-total")`)) === euro(expected(dest("alpe"), 4, { flatTotal: 111 })), await js(`return $t("#ledger-total")`));
     check("the bill says the price was typed", (await js(`return document.getElementById("ledger-body").textContent`)).includes("inserito a mano"));
     await js(`document.getElementById("budget-reset").click();`);
-    check("reset ends the trial", (await js(`return $t("#budget-status")`)) === "");
+    check("reset ends the trial, and says so where it can be seen", (await js(`return $t("#budget-status")`)).includes("Valori iniziali") && await js(`return document.activeElement.id === "budget-status"`));
 
     // Saved while trying a lodging that is not the published one
     await js(`document.querySelector("[data-drop]").closest("li").querySelector("[data-use]").click(); await new Promise((r) => setTimeout(r, 100));
@@ -634,7 +654,7 @@ function startServer(db, net) {
     const starredTotal = tripCost({ ...TRIP.defaults.shared, days: 4, nights: 3, km: dest("alpe").trip.km, tolls: dest("alpe").trip.tolls, pass: dest("alpe").pass[4], flatTotal: 300 }).total;
     check("the star sets the published figures", (await alpeSign()).includes(`stima ${euro(starredTotal)}`), await alpeSign());
     check("the star moves, leaving one per destination", (await db.query("select 1 from houses where dest = 'alpe' and official")).rows.length === 1);
-    check("focus does not fall off the page after starring", await js(`return document.activeElement.id === "house-status"`));
+    check("the star keeps focus on the row just pressed", await js(`return !!document.activeElement.dataset.star`), await js(`return document.activeElement.id || document.activeElement.tagName`));
     await js(`${bravoRow}.click(); await $until(() => document.querySelectorAll(".house-official").length === 3);`);
     check("without a star the cheapest per night stands in", (await alpeSign()).includes(`stima ${euro(starredTotal)}`), await alpeSign());
     const bravoId = (await db.query("select id from houses where total = 400")).rows[0].id;
@@ -662,7 +682,7 @@ function startServer(db, net) {
     const serreRows = (await db.query("select * from houses where dest = 'serre'")).rows;
     await db.exec("delete from houses where dest = 'serre'");
     await go();
-    const partial = await js(`await $until(() => $t("#cost-objection").includes("manca")); const rows = [...document.querySelectorAll("#compare li")]; const row = rows[${TRIP.destinations.indexOf(dest("serre"))}];
+    const partial = await js(`await $until(() => $t("#cost-objection").includes("manca")); const rows = [...document.querySelectorAll("#compare .choice")]; const row = rows[${TRIP.destinations.indexOf(dest("serre"))}];
       $pick("dest", "serre"); await new Promise((r) => setTimeout(r, 50));
       return { number: row.querySelector("strong").textContent, label: row.querySelector("small").textContent, sign: document.querySelectorAll(".sign-data")[${TRIP.destinations.indexOf(dest("serre"))}].textContent, objection: $t("#cost-objection"), live: $t("#live-total small"), total: $t("#ledger-total-label"), verdict: $t("#verdict"), gauge: document.getElementById("gauge").hidden }`);
     check("the gauge places no mark for a total without a lodging", partial.gauge, partial);
@@ -889,6 +909,17 @@ function startServer(db, net) {
       await js(`document.querySelector("#thorens .apres-title").scrollIntoView(); scrollBy(0, -80);`);
       await settle();
       await shot("g22-venues-thorens");
+      await js(`document.querySelectorAll("details").forEach((d) => { d.open = false; });`);
+      const contoHeight = await js(`const c = document.getElementById("conto"); c.scrollIntoView(); return c.offsetHeight`);
+      for (let i = 0; i * 640 < contoHeight; i++) {
+        await js(`document.getElementById("conto").scrollIntoView(); scrollBy(0, ${i * 640});`);
+        await sleep(300);
+        await shot(`g30-conto-${String(i).padStart(2, "0")}`);
+      }
+      await js(`document.querySelectorAll("details").forEach((d) => { d.open = true; });`);
+      await js(`document.getElementById("budget-fields").scrollIntoView(); scrollBy(0, -110);`);
+      await settle();
+      await shot("g32-fields-open");
       await js(`document.getElementById("house-form").scrollIntoView(); scrollBy(0, -110);`);
       await settle();
       await shot("g15-house-form");
@@ -915,6 +946,7 @@ function startServer(db, net) {
     check("photos come grouped by trip", gallery.titles.join() === "Luogo Uno, 2025,Luogo Due, 2026" && gallery.rows.join() === "2,1", gallery);
     check("photos load, with their description", gallery.loaded && gallery.alt === "Foto <b>0</b>" && !gallery.bold && gallery.note, gallery);
     const covered = await js(`const out = [];
+      document.querySelectorAll("details").forEach((d) => { d.open = true; });
       for (const s of ["#save-vote", "#save-pass", "#save-proposal", "#logout", "#quote-form button", "#house-form button", "#budget-reset", "#flight-start", ".dest-actions .btn"]) {
         const e = document.querySelector(s);
         if (!e) continue;
@@ -1033,9 +1065,15 @@ function startServer(db, net) {
       check(`the vote action is in the first view at ${w}x${h}`, layout.postBottom <= layout.height, layout);
       if (SHOTS && w === 1440) {
         await shot("g18-desktop-hero");
-        await js(`document.getElementById("house-form").scrollIntoView(); scrollBy(0, -110);`);
+        await js(`document.querySelectorAll("details").forEach((d) => { d.open = true; }); document.getElementById("house-form").scrollIntoView(); scrollBy(0, -110);`);
         await settle();
         await shot("g19-desktop-houses");
+        await js(`document.querySelectorAll("details").forEach((d) => { d.open = false; }); document.getElementById("budget-form").scrollIntoView(); scrollBy(0, -20);`);
+        await settle();
+        await shot("g33-desktop-conto");
+        await js(`document.querySelector(".ledger tbody tr:nth-child(3)").scrollIntoView({ block: "center" });`);
+        await settle();
+        await shot("g34-desktop-sticky");
       }
     }
     if (SHOTS) {
@@ -1083,7 +1121,8 @@ function startServer(db, net) {
   } finally {
     server.close();
     server.closeAllConnections();
-    edge.kill();
+    // The spawned process is only a launcher: the browsers carry the profile on their command line.
+    spawnSync("powershell", ["-NoProfile", "-Command", `Get-CimInstance Win32_Process -Filter "name='msedge.exe'" | Where-Object { $_.CommandLine -like '*${path.basename(profile)}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`]);
     await db.close();
     await sleep(500);
     try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 3, retryDelay: 300 }); } catch { /* the browser may still hold it */ }

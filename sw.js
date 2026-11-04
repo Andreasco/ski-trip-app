@@ -1,5 +1,5 @@
 // Bump on every release so old caches are replaced.
-const VERSION = "discesa-v46";
+const VERSION = "discesa-v48";
 
 const SHELL = [
   "./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/og.jpg",
