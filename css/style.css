@@ -197,6 +197,10 @@ main > section:not(:first-child)::before, .footer::before {
 .facts dt { font-size: .875rem; color: #3c4a60; }
 .facts dd { margin: 0; font-weight: 800; font-size: 1.15rem; line-height: 1.2; }
 .note { font-size: 1.0625rem; }
+.pros { margin: 1.1rem 0; padding: 14px 16px; background: var(--deep); color: var(--snow); }
+.pros h4 { margin: 0 0 .4rem; font: 800 1.2rem/1.2 var(--body); color: inherit; }
+.pros ul { margin: 0; padding-left: 1.1rem; font-size: 1.0625rem; font-weight: 700; line-height: 1.35; }
+.pros li + li { margin-top: .4rem; }
 .sign-name, .dest h3 { text-wrap: balance; }
 .apres-title { margin: 1.1rem 0 .4rem; font: 800 1.2rem/1.2 var(--body); }
 .venues { margin: 0 0 .5rem; padding-left: 1.1rem; }
