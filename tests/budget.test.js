@@ -40,28 +40,34 @@ close(globalThis.houseTotal({ total: 600, nights: 3 }, 4), 800);
 // Sentences in js/data.js and index.html that state these facts: a failure means "review this sentence".
 const { TRIP } = globalThis;
 const place = (id) => TRIP.destinations.find((d) => d.id === id);
-const [alpe, thorens, serre, cervinia] = ["alpe", "thorens", "serre", "cervinia"].map(place);
+const [thorens, tignes, alpe, serre] = ["thorens", "tignes", "alpe", "serre"].map(place);
 const others = (d) => TRIP.destinations.filter((x) => x !== d);
 
-assert.ok(others(thorens).every((d) => thorens.trip.tolls > d.trip.tolls), 'review: legend "la nera ha i pedaggi più cari"');
-assert.ok(others(alpe).every((d) => alpe.trip.km > d.trip.km), 'review: legend "la rossa il tragitto più lungo" and the Alpe downside');
-assert.strictEqual(serre.drive, "circa 2 h", 'review: legend "blu e verde stanno a circa 2 ore"');
-assert.strictEqual(cervinia.drive, "circa 2 h", 'review: legend "blu e verde stanno a circa 2 ore"');
+assert.ok(others(thorens).every((d) => thorens.pass[4] > d.pass[4]), 'review: legend "la nera ha lo skipass più caro" and the Val Thorens downside');
+assert.ok(others(tignes).every((d) => tignes.trip.km > d.trip.km), 'review: legend "la rossa il tragitto più lungo" and the Tignes downside');
+assert.ok(others(alpe).every((d) => alpe.pass[4] < d.pass[4]), 'review: legend "la blu lo skipass meno caro" and the Alpe title');
+assert.ok(others(serre).every((d) => serre.trip.km < d.trip.km), 'review: legend "la verde il tragitto più corto" and the Serre title');
 assert.ok(others(serre).every((d) => serre.top < d.top), 'review: Serre "la quota massima più bassa"');
+assert.ok(others(thorens).every((d) => thorens.km > d.km), 'review: Val Thorens "il comprensorio più grande delle quattro"');
+assert.ok(others(serre).every((d) => serre.ratings.apres < d.ratings.apres), 'review: Serre "il più tranquillo delle quattro"');
+assert.ok(others(thorens).every((d) => thorens.ratings.apres > d.ratings.apres), 'review: Val Thorens title "la festa più forte"');
 assert.strictEqual(TRIP.destinations.map((d) => d.grade).join(), "black,red,blue,green", "review: destinations run from the black down");
 assert.strictEqual(TRIP.destinations.length, 4, 'review: "quattro" in index.html and the objection');
-assert.ok(thorens.title.includes(`${thorens.km} km`) && thorens.kmNote.includes("600"), 'review: Val Thorens title "150 km che diventano 600"');
-close(cervinia.passOption.prices[4] - cervinia.pass[4], 88.5); // Cervinia pitch: "per 88,50 € in più con 4 giorni"
+assert.strictEqual(tignes.drive, "circa 4 h", 'review: Tignes downside "circa 4 h"');
+assert.strictEqual(alpe.drive, "circa 3 h 30", 'review: Alpe downside "circa 3 h 30"');
+assert.strictEqual(thorens.trip.tolls, tignes.trip.tolls, 'review: Tignes "gli stessi pedaggi di Val Thorens"');
+for (const d of [thorens, tignes]) assert.ok(d.downside.includes(`circa ${d.trip.tolls} €`), `review: ${d.id} downside states its tolls`);
 const euros = (note) => [...note.matchAll(/(\d+(?:,\d+)?) €/g)].map((m) => Number(m[1].replace(",", ".")));
-const thorensTolls = euros(thorens.trip.tollsNote);
-assert.strictEqual(Math.round(thorensTolls.reduce((a, b) => a + b)), thorens.trip.tolls, "review: Val Thorens tolls note against its total");
-assert.strictEqual(Math.round(thorensTolls[0]), 70, 'review: Val Thorens "il Fréjus aggiunge circa 70 €"');
-assert.ok(thorens.downside.includes("circa 70 €"), 'review: Val Thorens "il Fréjus aggiunge circa 70 €"');
-assert.strictEqual(euros(alpe.trip.tollsNote)[0] * 2, alpe.trip.tolls, "review: Alpe tolls note against its total");
-assert.strictEqual(euros(serre.trip.tollsNote)[0] * 2, serre.trip.tolls, "review: Serre tolls note against its total");
-assert.strictEqual(Math.round(euros(cervinia.trip.tollsNote)[0] * 2), cervinia.trip.tolls, "review: Cervinia tolls note against its total");
-assert.strictEqual(new Date(Date.UTC(2027, 1, 18)).getUTCDay(), 4, 'review: "Dal 18 al 21 febbraio è da giovedì a domenica"');
-assert.strictEqual(new Date(Date.UTC(2027, 1, 21)).getUTCDay(), 0, 'review: "Dal 18 al 21 febbraio è da giovedì a domenica"');
+for (const d of [thorens, tignes]) assert.strictEqual(Math.round(euros(d.trip.tollsNote).reduce((a, b) => a + b)), d.trip.tolls, `review: ${d.id} tolls note against its total`);
+for (const d of [alpe, serre]) assert.strictEqual(euros(d.trip.tollsNote)[0] * 2, d.trip.tolls, `review: ${d.id} tolls note against its total`);
+assert.strictEqual(new Date(Date.UTC(2027, 1, 4)).getUTCDay(), 4, 'review: "Dal 4 al 7 febbraio è da giovedì a domenica"');
+assert.strictEqual(new Date(Date.UTC(2027, 1, 7)).getUTCDay(), 0, 'review: "Dal 4 al 7 febbraio è da giovedì a domenica"');
+// The owner's choice of venues.
+const venues = { thorens: ["La Folie Douce", "Saloon Bar"], tignes: ["Cocorico", "Grizzly's Bar"], alpe: ["La Folie Douce", "Moose Bar"], serre: ["Le Chazelay", "Off Piste", "La Grotte"] };
+for (const d of TRIP.destinations) {
+  assert.strictEqual(d.apres.venues.map((v) => v.name).join(), venues[d.id].join(), `review: ${d.id} venues`);
+  assert.ok(d.apres.venues.every((v) => v.url.startsWith("https://")), `review: ${d.id} venue links`);
+}
 assert.strictEqual(TRIP.defaults.days - 1, TRIP.defaults.shared.nights, "review: 3 notti e 4 giorni di sci");
 
 console.log("budget ok");

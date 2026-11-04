@@ -17,7 +17,7 @@ The Security Advisor will warn about "RLS enabled, no policy" and "anon can exec
 
 ## Upgrading
 
-When a change needs the database, do it in this order, so nobody meets an empty site: run `schema.sql`, run `node scripts/load-private.js`, then push.
+When a change needs the database, do it in this order, so nobody meets an empty site: run `schema.sql`, run `node scripts/load-private.js`, then push. That script does not touch lodgings: they are added in the app, or once with `save_house`.
 
 ## First check, with the publishable key
 

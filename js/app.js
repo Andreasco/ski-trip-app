@@ -5,6 +5,8 @@
   // Italian skips the thousands dot on four digits unless asked.
   const grouped = (value) => value.toLocaleString("it-IT", { useGrouping: "always" });
   const euro = (value) => `${grouped(Math.round(value))} €`;
+  // A line may break after the slash, never before it.
+  const keepSlash = (name) => name.replace(" / ", "\u00a0/ ");
   const peopleCount = (count) => `${count} ${count === 1 ? "persona" : "persone"}`;
   const nightsWord = (n) => `${n} ${n === 1 ? "notte" : "notti"}`;
   const byId = (id) => TRIP.destinations.find((d) => d.id === id);
@@ -84,7 +86,6 @@
   const state = {
     dest: TRIP.destinations[0].id,
     days: TRIP.defaults.days,
-    passOption: false,
     shared: { ...TRIP.defaults.shared },
     // Values typed by the viewer for each destination.
     perDest: {},
@@ -108,10 +109,6 @@
   const edits = (dest) => (state.perDest[dest.id] ??= {});
   // A lodging tried with "Usa nel conto" stands in here until the viewer resets; it keeps following nights.
   const stayOf = (dest) => store.listHouses().find((h) => h.id === state.perDest[dest.id]?.house && h.dest === dest.id) || houseOf(dest);
-  const listPass = (dest, days) => {
-    const prices = dest.id === state.dest && state.passOption && dest.passOption ? dest.passOption.prices : dest.pass;
-    return prices[days];
-  };
   const inputsOf = (dest, days = state.days) => {
     const typed = state.perDest[dest.id] || {};
     return {
@@ -120,7 +117,7 @@
       km: typed.km ?? dest.trip.km,
       tolls: typed.tolls ?? dest.trip.tolls,
       flatTotal: typed.flat ?? (stayOf(dest) ? houseTotal(stayOf(dest), state.shared.nights) : 0),
-      pass: typed[`pass${days}`] ?? listPass(dest, days),
+      pass: typed[`pass${days}`] ?? dest.pass[days],
     };
   };
   const fieldValue = (dest, id) => {
@@ -147,7 +144,7 @@
       .map((d) => ({ d, total: costOf(d, days).total }))
       .sort((a, b) => a.total - b.total)[0];
     $("#hero-cost").textContent = cheapest ? `Stima da ${euro(cheapest.total)} a testa ${cheapest.d.at}, alloggio da confermare.` : "";
-    $("#signs").innerHTML = TRIP.destinations.map((d) => `<a class="sign" href="#${d.id}">${disc(d.grade)}<span class="sign-name">${d.name}</span><span class="sign-data">${d.drive}<br>${houseOf(d) ? `stima ${euro(costOf(d, days).total)}` : "casa da scegliere"}</span></a>`).join("");
+    $("#signs").innerHTML = TRIP.destinations.map((d) => `<a class="sign" href="#${d.id}">${disc(d.grade)}<span class="sign-name">${keepSlash(d.name)}</span><span class="sign-data">${d.drive}<br>${houseOf(d) ? `stima ${euro(costOf(d, days).total)}` : "casa da scegliere"}</span></a>`).join("");
   }
 
   function renderCostObjection() {
@@ -211,23 +208,28 @@
     document.querySelectorAll(".prints").forEach((row) => photoObserver.observe(row));
   }
 
+  const vote = (n) => `${String(n).replace(".", ",")}/10`;
+
   function renderDestinations() {
     $("#dest-list").innerHTML = TRIP.destinations.map((d) => `
       <article class="dest" id="${d.id}">
         <div class="plate"><canvas data-paint="${d.id}" role="img" aria-label="Panorama dipinto di ${d.name}"></canvas></div>
         <div class="dest-body">
-          <h3>${disc(d.grade)} ${d.name}</h3>
+          <h3>${disc(d.grade)} ${keepSlash(d.name)}</h3>
           <p class="lead">${d.gradeLabel}. ${d.title}</p>
           <p>${d.pitch}</p>
           <dl class="facts">
-            <div><dt>Piste</dt><dd>${d.km} km${d.kmNote ? `<small>${d.kmNote}</small>` : ""}</dd></div>
+            <div><dt>Piste</dt><dd>${d.km} km</dd></div>
             <div><dt>Quota massima</dt><dd>${grouped(d.top)} m</dd></div>
             <div><dt>Da Torino</dt><dd>${d.drive}</dd></div>
-            <div><dt>Après-ski</dt><dd>${d.apres}${d.apresSource ? `<small><a href="${d.apresSource.url}" target="_blank" rel="noopener">${d.apresSource.label}</a></small>` : ""}</dd></div>
+            <div><dt>I miei voti</dt><dd>Sci ${vote(d.ratings.ski)}<br>Après-ski ${vote(d.ratings.apres)}</dd></div>
           </dl>
+          <h4 class="apres-title">Come si fa après-ski</h4>
+          <ul class="venues">${d.apres.venues.map((v) => `<li><a href="${v.url}" target="_blank" rel="noopener">${v.name}</a>, ${v.when}. ${v.text}</li>`).join("")}</ul>
+          <p>${d.apres.how}</p>
           <p class="note"><strong>Il contro:</strong> ${d.downside}</p>
           <p class="dest-actions">
-            <a class="btn" href="#volo" data-fly="${d.id}">Sorvola ${d.name}</a>
+            <a class="btn" href="#volo" data-fly="${d.id}">Sorvola ${d.name.split(" / ")[0]}</a>
             <a class="btn btn-quiet" href="#conto" data-budget="${d.id}">Fai il conto</a>
           </p>
         </div>
@@ -260,10 +262,9 @@
     }
     const noStay = inputs.flatTotal === 0;
     const passNote = dest.passNotes?.[state.days] ? `<br><small>${dest.passNotes[state.days]}</small>` : "";
-    const optionOn = state.passOption && dest.passOption;
     const passSource = typed[`pass${state.days}`] !== undefined
       ? `<span class="tag">Importo inserito a mano</span>`
-      : origin(optionOn ? "Listino 2026/27" : dest.passLabels?.[state.days] || "Listino 2026/27", optionOn ? dest.passOption.source : dest.passSource);
+      : origin(dest.passLabels?.[state.days] || "Listino 2026/27", dest.passSource);
     const tollsTyped = typed.tolls !== undefined && typed.tolls !== dest.trip.tolls;
     const { people, cars } = state.shared;
     $("#ledger-caption").textContent = `Costo a testa, ${peopleCount(people)} e ${cars} auto. Importi arrotondati.`;
@@ -299,12 +300,6 @@
       const input = $(`#${id}`);
       if (document.activeElement !== input) input.value = fieldValue(dest, id);
     });
-    const option = $("#pass-option");
-    option.hidden = !dest.passOption;
-    if (dest.passOption) {
-      $("#pass-option-label").textContent = dest.passOption.label;
-      $("#pass-option-input").checked = state.passOption;
-    }
 
     $("#compare").innerHTML = TRIP.destinations.map((d) => {
       // The published figures, like the signs: what the viewer is trying out stays in the calculator.
@@ -332,20 +327,13 @@
         </div>`).join("")}</div></fieldset>`).join("");
 
     $("#budget-form").addEventListener("input", (event) => {
-      const { name, value, type, checked, id } = event.target;
+      const { name, value, type, id } = event.target;
       $("#budget-status").textContent = "";
-      if (name === "dest") {
-        state.dest = value;
-        state.passOption = false;
-      }
+      if (name === "dest") state.dest = value;
       if (name === "days") {
         state.days = Number(value);
         // One night fewer than the days skied, unless changed by hand afterwards.
         state.shared.nights = state.days - 1;
-      }
-      if (id === "pass-option-input") {
-        state.passOption = checked;
-        delete edits(byId(state.dest))[`pass${state.days}`];
       }
       if (type === "number") {
         const field = FIELDS.find((f) => f.id === id);
@@ -372,7 +360,6 @@
       document.activeElement?.blur();
       state.shared = { ...TRIP.defaults.shared };
       state.perDest = {};
-      state.passOption = false;
       $("#budget-status").textContent = "";
       state.dest = TRIP.destinations[0].id;
       state.days = TRIP.defaults.days;
@@ -392,7 +379,6 @@
   function selectBudgetDest(id) {
     $("#budget-status").textContent = "";
     state.dest = id;
-    state.passOption = false;
     const radio = document.querySelector(`input[name="dest"][value="${id}"]`);
     if (radio) radio.checked = true;
     renderBudget();
@@ -425,7 +411,6 @@
       const saved = await attempt($("#quote-status"), "Preventivo salvato: ora lo vediamo tutti.", () => store.saveQuote({
         note: $("#quote-note").value.trim(),
         dest: dest.id,
-        passOption: state.passOption,
         ...inputsOf(dest),
       }), $("#quote-form button"));
       if (!saved) return;
@@ -453,14 +438,13 @@
         state.shared = { people, cars, nights, consumption, fuelPrice, foodPerDay, extras };
         state.days = days;
         state.dest = dest;
-        state.passOption = Boolean(quote.passOption);
         // Only values that differ from the defaults stay fixed, so changing days still reprices the rest.
         const reopened = byId(dest);
         const typed = { km, tolls };
         const stay = store.listHouses().find((h) => h.dest === dest && Math.abs(houseTotal(h, nights) - flatTotal) < 0.005);
         if (stay) typed.house = stay.id;
         else if (flatTotal !== stayCost(reopened, nights)) typed.flat = flatTotal;
-        if (pass !== listPass(reopened, days)) typed[`pass${days}`] = pass;
+        if (pass !== reopened.pass[days]) typed[`pass${days}`] = pass;
         state.perDest[dest] = typed;
         document.querySelector(`input[name="dest"][value="${dest}"]`).checked = true;
         document.querySelector(`input[name="days"][value="${days}"]`).checked = true;
@@ -556,7 +540,6 @@
         const house = store.listHouses().find((h) => h.id === use);
         if (!house) return;
         state.dest = house.dest;
-        state.passOption = false;
         state.shared.nights = house.nights;
         if (house.nights + 1 in byId(house.dest).pass) state.days = house.nights + 1;
         delete edits(byId(house.dest)).flat;
@@ -878,7 +861,7 @@
   }
 
   // 3D flight: loaded only when requested, since it is the heaviest thing on the page.
-  const flight = { map: null, run: 0, dest: "cervinia", failed: false };
+  const flight = { map: null, run: 0, dest: TRIP.heroDest, failed: false };
 
   const loadMapLibre = () => new Promise((resolve, reject) => {
     if (globalThis.maplibregl) return resolve();
