@@ -52,10 +52,6 @@
   // Everything about the group comes from the database, after the gate.
   const me = () => store.listPeople().find((p) => p.id === store.session?.person) || store.session;
   const nameOf = (id) => store.listPeople().find((p) => p.id === id)?.name || id;
-  const budgetBand = () => {
-    const costs = store.listPastTrips().map((t) => t.cost);
-    return costs.length ? [Math.min(...costs), Math.max(...costs)] : null;
-  };
 
   // The starred lodging sets the published figures; without a star, the cheapest per night.
   const houseOf = (dest) => {
@@ -77,8 +73,8 @@
       location.reload();
       return;
     }
-    $("#votes-note").textContent = online ? "Voti e posti li vediamo tutti e quattro." : "Non riesco ad aggiornare: stai vedendo gli ultimi voti scaricati.";
-    $("#quotes-note").textContent = online ? "Preventivi e alloggi li vediamo tutti e quattro." : "Non riesco ad aggiornare: stai vedendo gli ultimi preventivi scaricati.";
+    $("#votes-note").textContent = online ? "Voti e posti li vediamo tutti." : "Non riesco ad aggiornare: stai vedendo gli ultimi voti scaricati.";
+    $("#quotes-note").textContent = online ? "Preventivi e alloggi li vediamo tutti." : "Non riesco ad aggiornare: stai vedendo gli ultimi preventivi scaricati.";
     $("#houses-note").textContent = online ? "L'alloggio con la stella fa il conto della sua meta; se non c'è, vale il più economico. I prezzi sono il totale dell'alloggio, non a testa." : "Non riesco ad aggiornare: stai vedendo gli ultimi alloggi e conti scaricati.";
     renderShared();
   };
@@ -93,7 +89,6 @@
 
   const FIELDS = [
     // The limits match the checks in supabase/schema.sql.
-    { id: "people", label: "Persone che dividono", group: "Il gruppo", min: 1, max: 50, step: 1, whole: true },
     { id: "cars", label: "Auto", group: "Il gruppo", min: 1, max: 50, step: 1, whole: true },
     { id: "km", label: "Km andata e ritorno", group: "Si divide tra tutti", min: 0, max: 100000, step: 10, perDest: true },
     { id: "consumption", label: "Litri per 100 km", group: "Si divide tra tutti", min: 0, max: 100, step: 0.5 },
@@ -125,8 +120,9 @@
     return id === "flat" ? Math.round(inputs.flatTotal * 100) / 100 : inputs[id];
   };
   // The published figures: the hero and the objections state these, whatever the viewer is trying out.
-  const defaultsOf = (dest, days) => ({
+  const defaultsOf = (dest, days, people = TRIP.defaults.shared.people) => ({
     ...TRIP.defaults.shared,
+    people,
     days,
     nights: days - 1,
     km: dest.trip.km,
@@ -134,92 +130,44 @@
     flatTotal: stayCost(dest, days - 1),
     pass: dest.pass[days],
   });
-  const costOf = (dest, days) => tripCost(defaultsOf(dest, days));
+  const costOf = (dest, days, people) => tripCost(defaultsOf(dest, days, people));
 
   function renderHero() {
     if (me()?.line) $("#personal").textContent = me().line;
     const { days } = TRIP.defaults;
-    const cheapest = TRIP.destinations
-      .filter(houseOf)
-      .map((d) => ({ d, total: costOf(d, days).total }))
-      .sort((a, b) => a.total - b.total)[0];
-    $("#hero-cost").textContent = cheapest ? `Si parte da circa ${euro(cheapest.total)} a testa ${cheapest.d.at}, con alloggio, skipass e viaggio dentro.` : "";
-    $("#signs").innerHTML = TRIP.destinations.map((d) => `<a class="sign" href="#${d.id}">${disc(d.grade)}<span class="sign-name">${keepSlash(d.name)}</span><span class="sign-data">${d.drive}<br>${houseOf(d) ? `stima ${euro(costOf(d, days).total)}` : "casa da scegliere"}</span></a>`).join("");
+    const { people } = TRIP.defaults.shared;
+    const fav = byId(TRIP.favorite);
+    const others = TRIP.destinations.filter((d) => d !== fav);
+    $("#hero-cost").textContent = houseOf(fav) ? `${fav.name} costa circa ${euro(costOf(fav, days).total)} a testa, in ${COUNT[people]}, con alloggio, skipass e viaggio dentro.` : "";
+    $("#signs").innerHTML = `<a class="sign sign-main" href="#mete">${disc(fav.grade)}<span class="sign-name">${keepSlash(fav.name)}<small>La proposta</small></span><span class="sign-data">${fav.drive}<br>${houseOf(fav) ? `stima ${euro(costOf(fav, days).total)}` : "casa da scegliere"}</span></a>
+      <a class="sign sign-more" href="#alternative"><span class="sign-discs">${others.map((d) => disc(d.grade)).join("")}</span><span class="sign-name">${others.length} alternative</span><span class="sign-data">${others.map((d) => d.name.split(" / ")[0]).join(", ")}</span></a>`;
   }
 
   function renderCostObjection() {
     const { days } = TRIP.defaults;
-    const [, high] = budgetBand() || [];
-    const priced = TRIP.destinations.filter(houseOf).map((d) => ({ name: d.name, total: costOf(d, days).total }));
+    const { people } = TRIP.defaults.shared;
+    const priced = TRIP.destinations.filter(houseOf).map((d) => ({ id: d.id, name: d.name, total: costOf(d, days).total }));
     if (!priced.length) {
       $("#cost-objection").textContent = "Appena inseriamo gli alloggi, qui compare il conto di ogni meta.";
       return;
     }
-    const totals = priced.map((p) => p.total);
-    const over = priced.filter((p) => p.total > high).map((p) => p.name);
     const missing = TRIP.destinations.filter((d) => !houseOf(d)).map((d) => d.name);
-    const scope = missing.length ? `, contando solo le mete con un alloggio: manca ancora per ${missing.join(" e ")}` : "";
-    let verdict = "";
-    if (high !== undefined) {
-      const all = missing.length ? "" : "tutte ";
-      if (priced.length === 1) verdict = over.length ? " Oggi supera il nostro viaggio più caro." : " Oggi sta entro il nostro viaggio più caro.";
-      else if (!over.length) verdict = ` Oggi stanno ${all}entro il nostro viaggio più caro.`;
-      else if (over.length === priced.length) verdict = ` Oggi superano ${all}il nostro viaggio più caro.`;
-      else verdict = ` Oggi solo ${over.join(" e ")} ${over.length > 1 ? "superano" : "supera"} il nostro viaggio più caro: ${priced.length - over.length === 1 ? "l'altra sta" : "le altre stanno"} dentro.`;
-    }
-    const low = Math.min(...totals);
-    const top = Math.max(...totals);
-    const perDay = priced.length === 1 ? euro(low / days) : `da ${euro(low / days)} a ${euro(top / days)}`;
-    $("#cost-objection").textContent = `Facciamo due conti. Con ${COUNT[days - 1]} notti e ${COUNT[days]} giorni di sci ${priced.length === 1 ? `${priced[0].name} costa ${euro(low)}` : `si va da ${euro(low)} a ${euro(top)}`} a testa${scope}. Sono ${perDay} per ogni giorno sulla neve.${verdict} Il prezzo degli alloggi si conferma quando prenotiamo; intanto qui sopra puoi cambiare ogni voce.`;
-  }
-
-  function renderPast() {
-    const trips = store.listPastTrips();
-    const next = TRIP.nextTrip;
-    $("#past").innerHTML = trips.map((t) => `<li><strong>${escapeHtml(t.year)}</strong><span>${escapeHtml(t.place)}</span><small>circa ${euro(t.cost)} a testa</small></li>`).join("")
-      + `<li><strong>${next.year}</strong><span>${next.place}</span><small>${next.note}</small></li>`;
-    renderPhotos(trips);
-  }
-
-  // A row of pictures is fetched when it nears the screen, whole, so swiping never shows a blank print.
-  let shownPhotos = "";
-  const photoObserver = new IntersectionObserver((entries) => {
-    entries.filter((e) => e.isIntersecting).forEach(({ target }) => {
-      photoObserver.unobserve(target);
-      target.querySelectorAll("img").forEach(async (img) => {
-        try {
-          img.src = await store.readPhoto(img.dataset.photo);
-        } catch {
-          $("#photos-note").hidden = false;
-        }
-      });
-    });
-  }, { rootMargin: "60% 0px" });
-
-  function renderPhotos(trips) {
-    const photos = store.listPhotos();
-    const key = JSON.stringify(photos);
-    if (key === shownPhotos) return;
-    shownPhotos = key;
-    const gallery = $("#photos");
-    gallery.hidden = !photos.length;
-    $("#photos-prints").innerHTML = trips.filter((t) => photos.some((p) => p.year === t.year)).map((t) => `
-      <h3>${escapeHtml(t.place)}, ${escapeHtml(t.year)}</h3>
-      <div class="prints" tabindex="0" role="group" aria-label="Foto di ${escapeHtml(t.place)}">
-        ${photos.filter((p) => p.year === t.year).map((p) => `<figure class="print" style="aspect-ratio: ${Number(p.width)} / ${Number(p.height)}"><img data-photo="${escapeHtml(p.id)}" alt="${escapeHtml(p.alt)}" width="${Number(p.width)}" height="${Number(p.height)}"></figure>`).join("")}
-      </div>`).join("");
-    document.querySelectorAll(".prints").forEach((row) => photoObserver.observe(row));
+    const listed = missing.length > 1 ? `${missing.slice(0, -1).join(", ")} e ${missing.at(-1)}` : missing[0];
+    const fav = priced.find((p) => p.id === TRIP.favorite);
+    const alts = priced.filter((p) => p !== fav).map((p) => p.total);
+    const parts = [`Facciamo due conti. In ${COUNT[people]}, con ${COUNT[days - 1]} notti e ${COUNT[days]} giorni di sci, ${fav ? `${fav.name} costa ${euro(fav.total)} a testa: ${euro(fav.total / days)} per ogni giorno sulla neve.` : `${byId(TRIP.favorite).name} aspetta ancora il suo alloggio.`}`];
+    if (alts.length) parts.push(alts.length === 1 ? `L'alternativa con un alloggio costa ${euro(alts[0])} a testa.` : `Le alternative vanno da ${euro(Math.min(...alts))} a ${euro(Math.max(...alts))} a testa.`);
+    if (missing.length) parts.push(`Manca ancora l'alloggio per ${listed}.`);
+    parts.push("Il prezzo degli alloggi si conferma quando prenotiamo; intanto qui sopra puoi cambiare ogni voce, anche giorni e persone.");
+    $("#cost-objection").textContent = parts.join(" ");
   }
 
   const vote = (n) => `${String(n).replace(".", ",")}/10`;
+  const CHEVRON = `<svg class="fold-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>`;
 
   function renderDestinations() {
-    $("#dest-list").innerHTML = TRIP.destinations.map((d) => `
-      <article class="dest" id="${d.id}">
-        <div class="plate"><canvas data-paint="${d.id}" role="img" aria-label="Panorama dipinto di ${d.name}"></canvas></div>
-        <div class="dest-body">
-          <h3>${disc(d.grade)} ${keepSlash(d.name)}</h3>
-          <p class="lead">${d.gradeLabel}. ${d.title}</p>
+    const plate = (d) => `<div class="plate"><canvas data-paint="${d.id}" role="img" aria-label="Panorama dipinto di ${d.name}"></canvas></div>`;
+    const body = (d) => `
           <p>${d.pitch}</p>
           <div class="pros"><h4>I pro</h4><ul>${d.pros.map((p) => `<li>${p}</li>`).join("")}</ul></div>
           <dl class="facts">
@@ -235,9 +183,25 @@
           <p class="dest-actions">
             <a class="btn" href="#volo" data-fly="${d.id}">Sorvola ${d.name.split(" / ")[0]}</a>
             <a class="btn btn-quiet" href="#conto" data-budget="${d.id}">Fai il conto</a>
-          </p>
+          </p>`;
+    const fav = byId(TRIP.favorite);
+    $("#dest-list").innerHTML = `
+      <article class="dest" id="${fav.id}">
+        ${plate(fav)}
+        <div class="dest-body">
+          <h3>${disc(fav.grade)} ${keepSlash(fav.name)}</h3>
+          <p class="lead">${fav.gradeLabel}. ${fav.title}</p>
+          <p class="why">${fav.why}</p>${body(fav)}
         </div>
-      </article>`).join("");
+      </article>`;
+    // Folded, the plates are not painted until someone opens them.
+    $("#alt-list").innerHTML = TRIP.destinations.filter((d) => d !== fav).map((d) => `
+      <details class="dest alt" id="${d.id}">
+        <summary>${disc(d.grade)}<span class="alt-name"><strong>${keepSlash(d.name)}</strong><span>${d.gradeLabel}. ${d.title}</span><small>${d.drive} da Torino, ${d.km} km di piste</small></span>${CHEVRON}</summary>
+        ${plate(d)}
+        <div class="dest-body">${body(d)}
+        </div>
+      </details>`).join("");
   }
 
   const houseLink = (house) => {
@@ -257,8 +221,6 @@
     const dest = byId(state.dest);
     const inputs = inputsOf(dest);
     const cost = tripCost(inputs);
-    const band = budgetBand();
-    const [low, high] = band || [];
     const typed = state.perDest[dest.id] || {};
     // The lodging being tried may have been deleted, here or by someone else.
     if (typed.house && !store.listHouses().some((h) => h.id === typed.house)) {
@@ -286,26 +248,7 @@
     $("#live-total").innerHTML = `<span>${dest.name}, ${state.days} giorni</span><strong>${euro(cost.total)}</strong><small>${noStay ? "a testa, senza alloggio" : "a testa"}</small>`;
     $("#ledger-group").textContent = euro(cost.groupTotal);
 
-    // Rounded like the figures on screen, so no sentence ever says "0 €".
-    const overTop = Math.round(cost.total - high);
-    const underLow = Math.round(low - cost.total);
-    const verdict = !band ? "" : overTop > 0
-      ? `Stima: ${euro(overTop)} a testa oltre il nostro viaggio più caro, per ${dest.km} km di piste`
-      : underLow > 0
-        ? `Stima: ${euro(underLow)} a testa in meno del nostro viaggio più economico, con ${dest.km} km di piste`
-        : overTop === 0
-          ? `Stima: come il nostro viaggio più caro, con ${dest.km} km di piste`
-          : `Stima: ${euro(-overTop)} a testa in meno del nostro viaggio più caro, con ${dest.km} km di piste`;
-    $("#verdict").textContent = noStay ? "Scegli un alloggio e il conto è completo" : verdict;
-
-    const scale = (value) => Math.min(100, Math.max(0, ((value - 400) / 600) * 100));
-    const gauge = $("#gauge");
-    gauge.hidden = !band || noStay;
-    gauge.style.setProperty("--band-start", `${scale(low)}%`);
-    gauge.style.setProperty("--band-end", `${scale(high)}%`);
-    gauge.style.setProperty("--mark", `${scale(cost.total)}%`);
-    $("#gauge-low").textContent = euro(low);
-    $("#gauge-high").textContent = euro(high);
+    $("#verdict").textContent = noStay ? "Scegli un alloggio e il conto è completo" : `Stima: ${euro(cost.total / state.days)} a testa per ogni giorno sulla neve, con ${dest.km} km di piste`;
 
     FIELDS.forEach(({ id }) => {
       const input = $(`#${id}`);
@@ -313,22 +256,21 @@
     });
 
     TRIP.destinations.forEach((d) => {
-      // The published figures, like the signs: what the viewer is trying out stays in the calculator.
+      // Each destination with the days and people picked here; what is typed further down stays in the calculator.
       const row = document.querySelector(`#compare [data-row="${d.id}"]`);
       const house = houseOf(d);
-      const total = house ? costOf(d, TRIP.defaults.days).total : 0;
+      const total = house ? costOf(d, state.days, people).total : 0;
       row.querySelector(".compare-figure").innerHTML = house ? `<strong>${euro(total)}</strong><small>${d.km} km di piste</small>` : `<strong></strong><small>Casa da scegliere</small>`;
-      row.querySelector(".compare-stay").textContent = house ? `${house.name}, ${euro(house.total)} in totale` : "";
+      row.querySelector(".compare-stay").textContent = house ? `${house.name}, ${euro(houseTotal(house, state.days - 1))} per ${nightsWord(state.days - 1)}` : "";
     });
-    const { people: basePeople, cars: baseCars, nights: baseNights } = TRIP.defaults.shared;
-    $("#compare-note").textContent = `Le cifre delle mete restano con ${nightsWord(baseNights)}, ${TRIP.defaults.days} giorni, ${peopleCount(basePeople)} e ${baseCars} auto, qualunque cosa provi più giù.${band ? ` Per confronto, il nostro viaggio più caro è costato ${euro(high)}.` : ""}`;
+    $("#compare-note").textContent = `Le mete seguono giorni e persone scelti qui, con ${nightsWord(state.days - 1)} e ${TRIP.defaults.shared.cars} auto. Quello che cambi in "Cambia le voci" resta solo nel conto qui sotto.`;
     $("#quote-what").textContent = `${dest.name}, ${state.days} giorni, ${euro(cost.total)} a testa${noStay ? ", senza alloggio" : ""}.`;
     renderHouses();
   }
 
   function setupBudget() {
     $("#compare").insertAdjacentHTML("beforeend", TRIP.destinations.map((d) => `
-      <label class="choice compare-row" data-row="${d.id}">${disc(d.grade)}<input type="radio" name="dest" value="${d.id}" ${d.id === state.dest ? "checked" : ""}><span class="compare-name">${keepSlash(d.name)}</span><span class="compare-figure"></span><span class="compare-stay"></span></label>`).join(""));
+      <label class="choice compare-row" data-row="${d.id}">${disc(d.grade)}<input type="radio" name="dest" value="${d.id}" ${d.id === state.dest ? "checked" : ""}><span class="compare-name">${keepSlash(d.name)}${d.id === TRIP.favorite ? `<span class="compare-tag">La proposta</span>` : ""}</span><span class="compare-figure"></span><span class="compare-stay"></span></label>`).join(""));
 
     const groups = [...new Set(FIELDS.map((f) => f.group))];
     $("#budget-fields").innerHTML = groups.map((group) => `
@@ -344,6 +286,7 @@
       if (id === "quote-note") return;
       $("#budget-status").textContent = "";
       if (name === "dest") state.dest = value;
+      if (name === "people") state.shared.people = Number(value);
       if (name === "days") {
         state.days = Number(value);
         // One night fewer than the days skied, unless changed by hand afterwards.
@@ -378,6 +321,7 @@
       state.perDest = {};
       state.days = TRIP.defaults.days;
       document.querySelector(`input[name="days"][value="${state.days}"]`).checked = true;
+      document.querySelector(`input[name="people"][value="${state.shared.people}"]`).checked = true;
       FIELDS.forEach(({ id }) => {
         $(`#${id}`).setAttribute("aria-invalid", "false");
         $(`#${id}`).removeAttribute("aria-describedby");
@@ -475,6 +419,8 @@
         state.perDest[dest] = typed;
         document.querySelector(`input[name="dest"][value="${dest}"]`).checked = true;
         document.querySelector(`input[name="days"][value="${days}"]`).checked = true;
+        const together = document.querySelector(`input[name="people"][value="${people}"]`);
+        if (together) together.checked = true;
         renderBudget();
         showBudgetStatus("Preventivo riaperto: puoi modificarlo in Cambia le voci.");
       }
@@ -484,7 +430,8 @@
   // Anyone adds what they find; the organizer stars the one that sets the published figures.
   function renderHouses() {
     const { organizer, person: self } = store.session || {};
-    const { days } = TRIP.defaults;
+    const { days } = state;
+    const { people } = state.shared;
     const houses = store.listHouses();
     const actions = (h, usable) => {
       const name = escapeHtml(h.name);
@@ -501,7 +448,7 @@
     const groups = !listed.length ? [] : [`
       <h4>${disc(d.grade)} ${d.name}</h4>
       <ul class="quote-list house-list">${listed.map((h) => {
-  const trip = tripCost({ ...defaultsOf(d, days), flatTotal: houseTotal(h, days - 1) }).total;
+  const trip = tripCost({ ...defaultsOf(d, days, people), flatTotal: houseTotal(h, days - 1) }).total;
   return `
         <li>
           <div>
@@ -596,9 +543,14 @@
   }
 
   function setupVote() {
-    const ranking = TRIP.destinations.map((d) => d.id);
-    // Saved rankings fill the list only until the voter starts moving things.
+    const fav = byId(TRIP.favorite);
+    const choiceOf = (vote) => validRanking(vote?.ranking)[0];
+    // A saved alternative fills the choice only until the voter picks another.
     let touched = false;
+    $("#vote-question").innerHTML = `Ci stai per <strong>${fav.name}</strong>?`;
+    $("#save-vote").textContent = `Ci sto per ${fav.name}`;
+    $("#other-choices").insertAdjacentHTML("beforeend", TRIP.destinations.filter((d) => d !== fav).map((d) => `
+      <label class="choice">${disc(d.grade)}<input type="radio" name="other" value="${d.id}">${keepSlash(d.name)}</label>`).join(""));
 
     // Seen from above with the windscreen at the top, driving on the left.
     const SEATS = ["Guida", "Passeggero", "Dietro sinistra", "Dietro destra"];
@@ -608,19 +560,16 @@
       const votes = store.listVotes();
       const voting = votes.filter((vote) => vote.attending);
       $("#vote-results").hidden = votes.length === 0;
-      // Borda count: first choice is worth as many points as there are destinations.
-      const points = Object.fromEntries(TRIP.destinations.map((d) => [d.id, 0]));
-      voting.forEach((vote) => validRanking(vote.ranking).forEach((id, index) => {
-        points[id] += TRIP.destinations.length - index;
-      }));
-      $("#vote-tally").innerHTML = Object.entries(points).sort((a, b) => b[1] - a[1])
-        .map(([id, score]) => `<li>${disc(byId(id).grade)}<span>${byId(id).name}</span><strong>${score} ${score === 1 ? "punto" : "punti"}</strong></li>`).join("");
+      // One vote each, for the proposal or an alternative; the proposal always shows, even at zero.
+      $("#vote-tally").innerHTML = TRIP.destinations
+        .map((d) => ({ d, count: voting.filter((v) => choiceOf(v) === d.id).length }))
+        .filter(({ d, count }) => count || d === fav)
+        .sort((a, b) => b.count - a.count || (b.d === fav) - (a.d === fav))
+        .map(({ d, count }) => `<li>${disc(d.grade)}<span>${d.name}${d === fav ? `<small>La proposta</small>` : ""}</span><strong>${count} ${count === 1 ? "voto" : "voti"}</strong></li>`).join("");
       $("#vote-people").innerHTML = votes.map((vote) => {
         const name = escapeHtml(nameOf(vote.person));
-        const ranked = validRanking(vote.ranking);
-        const left = TRIP.destinations.filter((d) => !ranked.includes(d.id)).map((d) => d.name);
-        const gap = vote.attending && ranked.length && left.length ? ` (manca ${left.join(" e ")})` : "";
-        const choice = !vote.attending ? "stavolta passa" : ranked.length ? `${ranked.map((id, i) => `${i + 1}. ${byId(id).name}`).join(", ")}${gap}` : "ci sta, senza classifica";
+        const id = choiceOf(vote);
+        const choice = !vote.attending ? "stavolta passa" : id === fav.id ? `ci sta per ${fav.name}` : id ? `preferirebbe ${byId(id).name}` : "ci sta";
         return `<li><strong>${name}</strong>: ${choice}</li>`;
       }).join("");
       const people = store.listPeople();
@@ -654,40 +603,37 @@
       $("#seat-hint").textContent = passed ? PASSED : seats.some((row) => row.person === self) ? "Tocca un posto libero per cambiare, o il tuo per scendere." : "Tocca un posto libero per salire.";
     };
 
-    const renderVote = (focusId) => {
-      $("#rank").innerHTML = ranking.map((id, index) => {
-        const d = byId(id);
-        return `<li>
-          <span class="rank-pos">${index + 1}</span>${disc(d.grade)}<span class="rank-name">${d.name}</span>
-          <button type="button" class="arrow" data-move="${id}" data-by="-1" aria-label="Sposta ${d.name} più in alto" ${index === 0 ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15l7-7 7 7"/></svg></button>
-          <button type="button" class="arrow" data-move="${id}" data-by="1" aria-label="Sposta ${d.name} più in basso" ${index === ranking.length - 1 ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg></button>
-        </li>`;
-      }).join("");
-      if (focusId) {
-        const target = document.querySelector(`[data-move="${focusId}"]:not([disabled])`);
-        if (target) target.focus();
-      }
-    };
-
     const renderMine = () => {
       const voter = store.session?.person;
       $("#voter-name").textContent = voter ? nameOf(voter) : "";
       if (touched) return;
-      const saved = validRanking(store.listVotes().find((vote) => vote.person === voter)?.ranking);
-      if (saved.length) {
-        // A vote from before a destination was added keeps its order, and says what is missing.
-        const left = ranking.filter((id) => !saved.includes(id));
-        ranking.splice(0, ranking.length, ...saved, ...left);
-        if (left.length) $("#vote-status").textContent = `Nel tuo voto manca ${left.map((id) => byId(id).name).join(" e ")}: controlla e salva di nuovo.`;
-      }
-      renderVote();
+      const mine = store.listVotes().find((vote) => vote.person === voter);
+      const id = mine?.attending ? choiceOf(mine) : null;
+      const radio = id && id !== fav.id && document.querySelector(`input[name="other"][value="${id}"]`);
+      document.querySelectorAll('input[name="other"]').forEach((input) => { input.checked = input === radio; });
+      if (radio) $("#vote-other").open = true;
     };
 
-    const saveVote = async (attending) => {
-      const message = attending ? "Voto salvato: ora lo vediamo tutti." : "Segnato: stavolta passi, e lo vediamo tutti. Puoi cambiare idea quando vuoi.";
-      const saved = await attempt($("#vote-status"), message, () => store.saveVote({ ranking: attending ? [...ranking] : [], attending }), $(attending ? "#save-vote" : "#save-pass"));
-      if (saved) renderShared();
+    const saveVote = async (attending, id, button) => {
+      const message = !attending ? "Segnato: stavolta passi, e lo vediamo tutti. Puoi cambiare idea quando vuoi."
+        : id === fav.id ? `Voto salvato: ci stai per ${fav.name}, e lo vediamo tutti.` : `Voto salvato: preferiresti ${byId(id).name}, e lo vediamo tutti.`;
+      const saved = await attempt($("#vote-status"), message, () => store.saveVote({ ranking: attending ? [id] : [], attending }), button);
+      if (!saved) return;
+      touched = false;
+      renderShared();
     };
+    $("#other-choices").addEventListener("input", () => {
+      touched = true;
+      $("#vote-status").textContent = "";
+    });
+    $("#save-other").addEventListener("click", () => {
+      const picked = document.querySelector('input[name="other"]:checked');
+      if (!picked) {
+        $("#vote-status").textContent = "Scegli prima quale alternativa preferiresti.";
+        return;
+      }
+      saveVote(true, picked.value, $("#save-other"));
+    });
     $("#seats").addEventListener("click", async (event) => {
       const button = event.target.closest("[data-seat]");
       if (!button) return;
@@ -704,8 +650,8 @@
       const same = document.querySelector(`[data-seat="${seat}"]`);
       if (same) same.focus({ preventScroll: true });
     });
-    $("#save-vote").addEventListener("click", () => saveVote(true));
-    $("#save-pass").addEventListener("click", () => saveVote(false));
+    $("#save-vote").addEventListener("click", () => saveVote(true, fav.id, $("#save-vote")));
+    $("#save-pass").addEventListener("click", () => saveVote(false, null, $("#save-pass")));
 
     const STATUS = { open: "In discussione", accepted: "Accolta", rejected: "Scartata" };
     const renderProposals = () => {
@@ -743,19 +689,6 @@
       renderShared();
     });
 
-    $("#rank").addEventListener("click", (event) => {
-      const button = event.target.closest("[data-move]");
-      if (!button) return;
-      touched = true;
-      // The saved order is no longer the one on screen.
-      $("#vote-status").textContent = "";
-      const id = button.dataset.move;
-      const from = ranking.indexOf(id);
-      const to = from + Number(button.dataset.by);
-      ranking.splice(from, 1);
-      ranking.splice(to, 0, id);
-      renderVote(id);
-    });
     $("#logout").addEventListener("click", () => {
       store.logout();
       location.replace(location.pathname);
@@ -1217,7 +1150,6 @@
   setupMaterials();
   renderHero();
   renderCostObjection();
-  renderPast();
   renderDestinations();
   setupBudget();
   setupFlight();
@@ -1228,7 +1160,7 @@
   setupRail();
   setupNav();
   setupPwa();
-  renderers.push(renderHero, renderCostObjection, renderPast, renderBudget);
+  renderers.push(renderHero, renderCostObjection, renderBudget);
   renderShared();
   setupGate();
   document.addEventListener("visibilitychange", () => {

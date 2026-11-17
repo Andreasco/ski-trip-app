@@ -19,7 +19,7 @@ globalThis.store = (() => {
       else localStorage.setItem(key, JSON.stringify(value));
     } catch { /* blocked storage only means asking again next time */ }
   };
-  const EMPTY = { people: [], pastTrips: [], photos: [], houses: [], quotes: [], votes: [], seats: [], proposals: [] };
+  const EMPTY = { people: [], houses: [], quotes: [], votes: [], seats: [], proposals: [] };
   let session = load(SESSION);
   let data = { ...EMPTY, ...load(CACHE) };
 
@@ -69,9 +69,6 @@ globalThis.store = (() => {
     },
 
     listPeople: () => data.people,
-    listPastTrips: () => data.pastTrips,
-    listPhotos: () => data.photos,
-    readPhoto: (id) => call("read_photo", { p_id: id }),
     listHouses: () => data.houses,
     listQuotes: () => data.quotes,
     listVotes: () => data.votes,

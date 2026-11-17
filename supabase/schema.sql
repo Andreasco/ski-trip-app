@@ -11,24 +11,6 @@ alter table people add column if not exists name text check (char_length(name) <
 alter table people add column if not exists line text check (char_length(line) <= 200);
 alter table people add column if not exists position integer not null default 0;
 
--- Everything about the group lives here, not in the public site.
-create table if not exists past_trips (
-  year integer primary key check (year between 2000 and 2100),
-  place text not null check (char_length(place) between 1 and 60),
-  cost numeric not null check (cost between 0 and 100000)
-);
-
-create table if not exists photos (
-  id text primary key check (char_length(id) between 1 and 40),
-  year integer not null,
-  alt text not null check (char_length(alt) between 1 and 200),
-  width integer not null check (width between 1 and 10000),
-  height integer not null check (height between 1 and 10000),
-  position integer not null default 0,
-  mime text not null check (mime in ('image/webp', 'image/jpeg', 'image/png')),
-  data text not null check (char_length(data) <= 2000000)
-);
-
 -- Bounds also reject NaN and Infinity, which Postgres numerics accept and rank above every number.
 create table if not exists quotes (
   id uuid primary key default gen_random_uuid(),
@@ -91,15 +73,20 @@ create table if not exists proposals (
   created_at timestamptz not null default now()
 );
 
+-- Past trips and photos belonged to the first group, and left with it.
+drop function if exists read_photo(text, text);
+drop function if exists set_past_trip(text, integer, text, numeric);
+drop function if exists save_photo(text, text, integer, text, integer, integer, integer, text, text);
+drop table if exists photos;
+drop table if exists past_trips;
+
 alter table people enable row level security;
 alter table quotes enable row level security;
 alter table votes enable row level security;
 alter table proposals enable row level security;
-alter table past_trips enable row level security;
-alter table photos enable row level security;
 alter table houses enable row level security;
 alter table seats enable row level security;
-revoke all on people, quotes, votes, proposals, past_trips, photos, houses, seats from public, anon, authenticated;
+revoke all on people, quotes, votes, proposals, houses, seats from public, anon, authenticated;
 
 create or replace function hash_code(p_code text) returns text
 language sql immutable set search_path = public, pg_temp as $$
@@ -137,13 +124,6 @@ begin
     'people', (select coalesce(json_agg(json_build_object(
       'id', id, 'name', name, 'line', line, 'organizer', organizer
     ) order by position, id), '[]'::json) from people),
-    'pastTrips', (select coalesce(json_agg(json_build_object(
-      'year', year, 'place', place, 'cost', cost
-    ) order by year), '[]'::json) from past_trips),
-    -- Only the description: each picture is fetched on its own, when it comes into view.
-    'photos', (select coalesce(json_agg(json_build_object(
-      'id', id, 'year', year, 'alt', alt, 'width', width, 'height', height
-    ) order by year, position, id), '[]'::json) from photos),
     'quotes', (select coalesce(json_agg(json_build_object(
       'id', id, 'person', person, 'note', note, 'dest', dest, 'days', days, 'passOption', pass_option,
       'people', q.people, 'cars', cars, 'km', km, 'consumption', consumption, 'fuelPrice', fuel_price, 'tolls', tolls,
@@ -317,20 +297,6 @@ begin
 end;
 $$;
 
-create or replace function read_photo(p_code text, p_id text) returns text
-language plpgsql stable security definer set search_path = public, pg_temp as $$
-declare
-  me people := person_from_code(p_code);
-  found text;
-begin
-  select 'data:' || mime || ';base64,' || data into found from photos where id = p_id;
-  if found is null then
-    raise exception 'not_found';
-  end if;
-  return found;
-end;
-$$;
-
 -- The organizer loads the group's own content with scripts/load-private.js.
 create or replace function set_person(p_code text, p_id text, p_name text, p_line text, p_position integer) returns void
 language plpgsql security definer set search_path = public, pg_temp as $$
@@ -347,42 +313,12 @@ begin
 end;
 $$;
 
-create or replace function set_past_trip(p_code text, p_year integer, p_place text, p_cost numeric) returns void
-language plpgsql security definer set search_path = public, pg_temp as $$
-declare
-  me people := person_from_code(p_code);
-begin
-  if not me.organizer then
-    raise exception 'not_allowed';
-  end if;
-  insert into past_trips (year, place, cost) values (p_year, p_place, p_cost)
-  on conflict (year) do update set place = excluded.place, cost = excluded.cost;
-end;
-$$;
-
-create or replace function save_photo(p_code text, p_id text, p_year integer, p_alt text, p_width integer, p_height integer, p_position integer, p_mime text, p_data text) returns void
-language plpgsql security definer set search_path = public, pg_temp as $$
-declare
-  me people := person_from_code(p_code);
-begin
-  if not me.organizer then
-    raise exception 'not_allowed';
-  end if;
-  insert into photos (id, year, alt, width, height, position, mime, data)
-  values (p_id, p_year, p_alt, p_width, p_height, p_position, p_mime, p_data)
-  on conflict (id) do update set year = excluded.year, alt = excluded.alt, width = excluded.width, height = excluded.height,
-    position = excluded.position, mime = excluded.mime, data = excluded.data;
-end;
-$$;
-
 revoke all on function hash_code(text), person_from_code(text) from public, anon, authenticated;
-revoke all on function login(text), read_all(text), read_photo(text, text), save_quote(text, jsonb), delete_quote(text, uuid),
+revoke all on function login(text), read_all(text), save_quote(text, jsonb), delete_quote(text, uuid),
   save_vote(text, text[], boolean), choose_seat(text, integer), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
   save_house(text, jsonb), delete_house(text, uuid), set_official_house(text, uuid),
-  set_person(text, text, text, text, integer), set_past_trip(text, integer, text, numeric),
-  save_photo(text, text, integer, text, integer, integer, integer, text, text) from public, authenticated;
-grant execute on function login(text), read_all(text), read_photo(text, text), save_quote(text, jsonb), delete_quote(text, uuid),
+  set_person(text, text, text, text, integer) from public, authenticated;
+grant execute on function login(text), read_all(text), save_quote(text, jsonb), delete_quote(text, uuid),
   save_vote(text, text[], boolean), choose_seat(text, integer), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
   save_house(text, jsonb), delete_house(text, uuid), set_official_house(text, uuid),
-  set_person(text, text, text, text, integer), set_past_trip(text, integer, text, numeric),
-  save_photo(text, text, integer, text, integer, integer, integer, text, text) to anon;
+  set_person(text, text, text, text, integer) to anon;

@@ -107,7 +107,6 @@ rounded:
   post: "3px"
   control: "4px"
   seat: "10px"
-  gauge: "9px"
   pill: "23px"
   car-tail: "26px"
   car-roof: "56px"
@@ -260,8 +259,8 @@ Motion belongs to the paint and to one gesture. The panorama lays its strokes do
 A cold mountain ramp from snow to ink, with piste marks as the only saturated colour and wood as the only warm material. The bar scene's lamp light is the one exception to both.
 
 ### Primary
-- **Deep Slope Blue** (#2b4c7e): headings, default buttons, direction boards, the Conto band, pressed pills, the car frame, hand notes on light grounds, the 2027 board in past trips. Also the theme colour.
-- **Night Slope Blue** (#1b3257): hover on deep surfaces and on the Go action, the gauge track, the bar section and its night sky.
+- **Deep Slope Blue** (#2b4c7e): headings, default buttons, direction boards, the Conto band, pressed pills, the car frame, hand notes on light grounds. Also the theme colour.
+- **Night Slope Blue** (#1b3257): hover on deep surfaces and on the Go action, the bar section and its night sky.
 
 ### Secondary
 - **Red Piste** (#c8202f): intermediate grade on discs and piste lines, and the way down on the rail and the red piste in the bar scene. Nothing else.
@@ -275,12 +274,12 @@ A cold mountain ramp from snow to ink, with piste marks as the only saturated co
 - **Lamp** (#f2b84b): the windows and glow of the bar scene, and nowhere else.
 
 ### Neutral
-- **Snow** (#f7f9fb): page ground, paper, past-trip tags, seats, ledger rows, the current nav item, the Go action on dark bands, and the colour the paintings fade into.
+- **Snow** (#f7f9fb): page ground, paper, seats, ledger rows, the current nav item, the Go action on dark bands, and the colour the paintings fade into.
 - **Ice** (#dce8f2): alternating band, arrow buttons, quiet-button hover, Go hover on dark bands.
-- **Sky** (#a9c6df): painted horizon, canvas placeholder, gauge band, ledger and tally hairlines, the car's windscreen.
+- **Sky** (#a9c6df): painted horizon, canvas placeholder, ledger and tally hairlines, the car's windscreen.
 - **Sky Zenith** (#4f82b5): top of the painted sky and of the flight's sky.
 - **Shadow Blue** (#5c7fad): the shaded snow midtone, and the row rules on deep bands.
-- **Ink** (#10192b): text, black piste grade, paper rules, map frames, ledger total, footer, bottom nav, the Go action (`--go` is an alias of this value), the dark cut board, the seat aboard, the gauge marker, and focus and invalid marks on light grounds.
+- **Ink** (#10192b): text, black piste grade, paper rules, map frames, ledger total, footer, bottom nav, the Go action (`--go` is an alias of this value), the dark cut board, the seat aboard, and focus and invalid marks on light grounds.
 - **Muted Ink** (#3c4a60): fine print, fact labels and secondary notes on light grounds.
 - **Label Ink** (#30496f): source tags.
 - **Ticked Ink** (#4d5a70): completed checklist items, with a line-through.
@@ -303,7 +302,7 @@ A cold mountain ramp from snow to ink, with piste marks as the only saturated co
 - **Display** (400, clamp(2.1rem, 9.2vw, 4rem), 1.04): the hero title in the cartouche.
 - **Headline** (400, clamp(1.9rem, 7.4vw, 3.6rem), 1.04): chapter headings, balanced wrap.
 - **Place** (400, clamp(1.9rem, 8.4vw, 3.4rem), 1.05): destination names under their plate.
-- **Figure** (400, 1.3 to 1.5rem, 1.1 to 1.2): live total, saved-quote total, ledger total, past-trip years, rank positions, objection titles.
+- **Figure** (400, 1.3 to 1.5rem, 1.1 to 1.2): live total, saved-quote total, ledger total, rank positions, objection titles.
 - **Closing** (400, 1.6rem, 1.04): the footer heading.
 - **Sign** (400, 1.1rem, 1.05): destination name on a board.
 - **Title** (Barlow 800, 1.45rem, 1.15): subsections inside a chapter.
@@ -326,7 +325,7 @@ A cold mountain ramp from snow to ink, with piste marks as the only saturated co
 
 A single phone-first column. The hero fills the screen (100svh), with the cartouche pinned to the top and the post to the bottom, so the mountain shows between them. Painted plates run full bleed (68svh, 74vh from 760px, capped at 760px and 820px), and each is followed by its text at up to 44rem. Other chapters are tonal bands of snow, ice or deep, padded 56px top and 64px bottom, with content capped at 62rem.
 
-Internal rhythm is small and steady: 6 to 8px between related controls, 12 to 18px inside groups, larger jumps between subsections. The single width breakpoint at 760px widens the gutters, adds a three-column layout to past trips and objections, moves the budget form to two columns, and turns the bottom nav into a centred 26rem bar. Under 700px of viewport height the hero tightens so the summit stays clear.
+Internal rhythm is small and steady: 6 to 8px between related controls, 12 to 18px inside groups, larger jumps between subsections. The single width breakpoint at 760px widens the gutters, adds a three-column layout to the objections, moves the budget form to two columns, and turns the bottom nav into a centred 26rem bar. Under 700px of viewport height the hero tightens so the summit stays clear.
 
 **The Rail Gutter Rule.** The left gutter is always wider than the right (26px and 16px, 44px and 32px from 760px), because text must never run under the rail.
 
@@ -344,7 +343,7 @@ Chapters meet on a torn brush edge. A 640 by 26px mask painted at runtime (`--ed
 
 ## Shapes
 
-Physical objects keep their physical outline. Boards are square-ended and cut to a 24px arrow, the post is a 12px upright with barely eased 3px top corners, and paper is square with a 4px double rule. Interactive controls share a slight 4px corner. Pills are fully rounded and reserved for choosing a destination to view. The car in the voting chapter has its own silhouette (56px roof, 26px tail) under its painting, with 10px seats. The gauge marker and the focus ring ease to 2px. Discs are perfect circles.
+Physical objects keep their physical outline. Boards are square-ended and cut to a 24px arrow, the post is a 12px upright with barely eased 3px top corners, and paper is square with a 4px double rule. Interactive controls share a slight 4px corner. Pills are fully rounded and reserved for choosing a destination to view. The car in the voting chapter has its own silhouette (56px roof, 26px tail) under its painting, with 10px seats. The focus ring eases to 2px. Discs are perfect circles.
 
 **The Cut Board Rule.** Signs and paper sheets are never rounded, and a board's direction is expressed by its cut. Car seats are the one exception, cushions that take the paper grain inside the car's own silhouette.
 
@@ -368,7 +367,6 @@ There is no generic card. Content sits on bands, on a plate, or in a purpose-bui
 - **Ledger:** snow rows on the deep band, 1px sky hairlines, right-aligned bold figures, source tags beneath each label, closing on an ink total row in Bowlby One.
 - **Facts:** two-column definition grid between 2px ink rules. The last fact holds the owner's two ratings, at equal weight.
 - **Venues:** after the facts, a heading, a plain list where each venue's name is its source link, and one sentence on how the evening works.
-- **Past Trips:** done years are paper tags with the 4px double ink rule; the open year is a deep board with grain, cut to the same 24px arrow as the signs.
 
 ### Inputs / Fields
 - **Style:** white ground, 2px ink border, 4px corner, 50px high, Barlow 600 at 1.125rem. Labels are bold and always visible.
@@ -379,10 +377,7 @@ There is no generic card. Content sits on bands, on a plate, or in a purpose-bui
 A four-link ink bar fixed at the bottom, 52px high with safe-area padding. It slides in on the shared easing once the hero is 65% gone, and the current chapter fills snow with ink text. It is full width on phones and a centred 26rem bar from 760px.
 
 ### Direction Post
-The hero's choice mechanism: a wooden upright and stacked destination boards, closing with the Go action as a dark cut board: ink with board grain, no border, 54px high, the same 24px arrow cut and the same inset white focus ring as the signs. Each board holds trail disc, name in Bowlby One and two lines of data, painted with board grain and cut to an arrow. Hover darkens it and slides it 6px along its arrow. The arrow cut also clips anything drawn outside the box, so a board needs a focus treatment that stays inside its outline.
-
-### Photo Prints
-Photos of past trips, in a row to swipe under each trip's title. Each is a print on paper with a 7px margin and a 1px sky edge, tilted under a degree, at its own proportions, so no face is cropped. No shadow: the One Sheet Rule holds. A row loads whole as it nears the screen, on an ice ground until then.
+Two boards only: the proposal's, taller, with its name at 1.45rem and "La proposta" beneath it, then an ink board for the alternatives with their three discs. The hero's choice mechanism: a wooden upright and stacked destination boards, closing with the Go action as a dark cut board: ink with board grain, no border, 54px high, the same 24px arrow cut and the same inset white focus ring as the signs. Each board holds trail disc, name in Bowlby One and two lines of data, painted with board grain and cut to an arrow. Hover darkens it and slides it 6px along its arrow. The arrow cut also clips anything drawn outside the box, so a board needs a focus treatment that stays inside its outline.
 
 ### Skipass Gate
 What a visitor meets before anything else: the painted mountain, a paper skipass hanging from a deep lanyard, and a turnstile planted in the snow. Everything else stays hidden until the skipass is stamped.
@@ -416,8 +411,10 @@ Four seats inside a car seen from above, painted at runtime with the panorama br
 ### Pros Board
 A square deep blue board right after a destination's pitch, with snow text at weight 700 and a native list. The caveats come last in the card, as a plain note at the same reading size: nothing is hidden, the pros simply speak first.
 
-### Live Total
-A paper strip with a 4px double ink rule, sticky through the whole Conto band, lodgings and saved quotes included, and no further. It holds the destination and days at 0.9375rem, the total in Bowlby One at 1.5rem, and the words "a testa".
+### Alternative Fold
+Each alternative is a native details on paper with the 4px double ink rule: disc, name in Bowlby One at 1.35rem, its grade line in bold and drive and kilometres beneath, with the chevron. Opened, it shows the plate at 52svh and the same card body as the proposal; its painting starts only then.
+
+A paper strip with a 4px double ink rule, sticky through the whole Conto band, lodgings and saved quotes included, and no further. It holds the destination and days at 0.9375rem, the total in Bowlby One at 1.5rem, and the words "a testa".
 
 ### Quote Calculator
 The answer comes first: destination rows, one control holding disc, name, published figure per head with the kilometres of piste it buys, and lodging, then the ledger with its "Voce / A testa" header and the verdict. The number fields stay folded in a native details under "Cambia le voci", grouped by who pays (the group, split among everyone, per head) in fieldsets with a Bowlby One legend at 1.2rem. Each group is a two-column grid at every width, with a 12px gap, labels at 0.9375rem and inputs aligned to the bottom so uneven labels keep them level.
@@ -430,16 +427,13 @@ A paper row with a 4px double ink rule, grouped under its destination's disc. It
 A plain snow row on the deep band, 12px inset, quieter than a lodging because it is a version of the trip and not an ingredient of it. Name, stay and note on the left, total per head in Bowlby One at 1.4rem on the right, and a row of 46px small buttons beneath.
 
 ### Vote Tally
-Hidden until the first vote. Destinations in score order, each with disc, name and bold points over a sky hairline. Beneath it, a plain list states each person's ranking in words, or that they pass.
+Hidden until the first vote. One vote each: the proposal always shows, marked "La proposta", and an alternative shows once someone picks it, each with disc, name and bold count over a sky hairline. Beneath it, a plain list says in words who is in for the proposal, who would prefer which alternative, and who passes.
 
 ### Proposal Form and List
 A form capped at 34rem: a bold visible label, a textarea and a default deep button. Saved proposals are plain snow rows, 12px inset, with no rule or grain, so they stay quieter than a saved quote. The organizer also sees two 46px small buttons to accept or discard, the author one to delete, and everyone sees the status in words.
 
-### Budget Gauge
-An 18px night-blue track, the past-trip range as a sky band, and an ink 8px marker with white border that glides on the shared easing. A sentence below always states the verdict, so the gauge is never the only signal.
-
-### Ranking Row
-A 2px deep-framed row with position in Bowlby One, disc, name, and two 48px arrow buttons in ice with inline SVG chevrons. Focus follows the moved item.
+### Vote Choice
+The question names the proposal; the Go action says "Ci sto per" it, the quiet button passes, and a deep-outlined fold opens the alternatives as radio tiles with their discs, plus a default button to save one.
 
 **The Glove Rule.** Standalone controls never stand below 46px, and most stand at 48 to 52px, because the reference is a phone on a cold mountain.
 

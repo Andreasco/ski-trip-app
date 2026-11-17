@@ -1,7 +1,8 @@
 // Creates everyone's secret skipass code. Run once with the published address:
 //   node scripts/new-codes.js https://example.github.io/ski-trip-app/
 // Writes messages to send and the SQL to run to discesa-codes.private.txt in the project root, ignored by git.
-// Nothing secret is printed. Pass --rotate to replace existing codes.
+// Nothing secret is printed. Pass --rotate to replace existing codes, or --add to keep them and add whoever is new:
+// with --add, people no longer in content.json lose their codes when the SQL runs.
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -17,14 +18,18 @@ if (!site) {
   console.error("Pass the published address, for example https://example.github.io/ski-trip-app/");
   process.exit(1);
 }
-if (fs.existsSync(OUT) && !process.argv.includes("--rotate")) {
-  console.error(`${OUT} already exists. Pass --rotate to replace the codes.`);
+const adding = process.argv.includes("--add");
+if (fs.existsSync(OUT) && !process.argv.includes("--rotate") && !adding) {
+  console.error(`${OUT} already exists. Pass --rotate to replace the codes, or --add to add new people.`);
   process.exit(1);
 }
+const kept = adding && fs.existsSync(OUT)
+  ? Object.fromEntries([...fs.readFileSync(OUT, "utf8").matchAll(/--- (\S+) ---\r?\n.*#k=([A-Z0-9]+)/g)].map((m) => [m[1], m[2]]))
+  : {};
 
 const newCode = () => Array.from({ length: 8 }, () => ALPHABET[crypto.randomInt(ALPHABET.length)]).join("");
 const rows = content.people.map(({ id: person, organizer }) => {
-  const code = newCode();
+  const code = kept[person] || newCode();
   return { person, organizer: Boolean(organizer), code, hash: crypto.createHash("sha256").update(code).digest("hex") };
 });
 const base = site.endsWith("/") ? site : `${site}/`;
@@ -41,8 +46,8 @@ MESSAGES: send each one only to its owner.
 ${messages.join("\n")}
 
 SQL: run once in the Supabase SQL editor, after schema.sql.
-insert into people (id, code_hash, organizer) values
+${adding ? `delete from people where id not in (${rows.map((r) => `'${r.person}'`).join(", ")});\n` : ""}insert into people (id, code_hash, organizer) values
 ${values.join(",\n")}
 on conflict (id) do update set code_hash = excluded.code_hash, organizer = excluded.organizer;
 `);
-console.log(`Written to ${OUT}`);
+console.log(`Written to ${OUT}${adding ? `: ${rows.filter((r) => kept[r.person]).length} kept, ${rows.filter((r) => !kept[r.person]).length} new` : ""}`);

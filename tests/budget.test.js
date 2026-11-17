@@ -20,19 +20,33 @@ const base = {
 const one = globalThis.tripCost(base);
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 0.001, `${actual} is not ${expected}`);
 
-close(one.lodging, 335.5);
-close(one.fuel, 13.3);
-close(one.tolls, 6.5);
+// Whole euros per line: 335.5, 13.3 and 6.5 round to 336, 13 and 7.
+close(one.lodging, 336);
+close(one.fuel, 13);
+close(one.tolls, 7);
 close(one.food, 140);
-close(one.total, 748.3);
-close(one.groupTotal, 2993.2);
+close(one.total, 749);
+close(one.groupTotal, 749 * 4);
 
 const twoCars = globalThis.tripCost({ ...base, cars: 2 });
-close(twoCars.fuel, 26.6);
+close(twoCars.fuel, 27);
 close(twoCars.tolls, 13);
 
 const three = globalThis.tripCost({ ...base, people: 3 });
-close(three.lodging, 1342 / 3);
+close(three.lodging, 447);
+
+// What the ledger shows must add up: lines to the total, the total to the group's.
+for (const d of globalThis.TRIP.destinations) {
+  for (const days of [3, 4]) {
+    for (const people of [3, 4]) {
+      const cost = globalThis.tripCost({ ...base, ...globalThis.TRIP.defaults.shared, days, people, pass: d.pass[days], km: d.trip.km, tolls: d.trip.tolls, flatTotal: 686 * (days - 1) / 3 });
+      const lines = [cost.pass, cost.lodging, cost.fuel, cost.tolls, cost.food, cost.extras];
+      assert.ok(lines.every(Number.isInteger), `${d.id} ${days}d ${people}p: whole euros`);
+      assert.strictEqual(lines.reduce((a, b) => a + b), cost.total, `${d.id} ${days}d ${people}p: lines add up`);
+      assert.strictEqual(cost.total * people, cost.groupTotal, `${d.id} ${days}d ${people}p: the group's total`);
+    }
+  }
+}
 
 close(globalThis.houseTotal({ total: 600, nights: 3 }, 3), 600);
 close(globalThis.houseTotal({ total: 600, nights: 3 }, 4), 800);
@@ -43,9 +57,10 @@ const place = (id) => TRIP.destinations.find((d) => d.id === id);
 const [thorens, tignes, alpe, serre] = ["thorens", "tignes", "alpe", "serre"].map(place);
 const others = (d) => TRIP.destinations.filter((x) => x !== d);
 
-assert.ok(others(thorens).every((d) => thorens.pass[4] > d.pass[4]), 'review: Val Thorens downside "lo skipass è il più caro"');
+assert.ok([3, 4].every((n) => others(thorens).every((d) => thorens.pass[n] > d.pass[n])), 'review: Val Thorens downside "lo skipass è il più caro"');
+assert.ok(TRIP.destinations.every((d) => Object.keys(d.pass).join() === "3,4"), "review: index.html offers 3 or 4 days of skiing");
 assert.ok(others(tignes).every((d) => tignes.trip.km > d.trip.km), 'review: Tignes downside "il viaggio più lungo"');
-assert.ok(others(alpe).every((d) => alpe.pass[4] < d.pass[4]), 'review: legend "la blu lo skipass meno caro" and the Alpe title');
+assert.ok([3, 4].every((n) => others(alpe).every((d) => alpe.pass[n] < d.pass[n])), 'review: legend "la blu lo skipass meno caro" and the Alpe title');
 assert.ok(others(serre).every((d) => serre.trip.km < d.trip.km), 'review: legend "la verde il viaggio più corto" and the Serre title');
 assert.ok(others(serre).every((d) => serre.top < d.top), 'review: Serre "la quota massima più bassa"');
 assert.ok(others(tignes).every((d) => tignes.top > d.top), 'review: legend "la rossa la quota più alta" and the Tignes pros');
@@ -58,11 +73,14 @@ assert.ok(thorens.downside.includes(`${thorens.km} km`), "review: Val Thorens do
 assert.ok(others(thorens).every((d) => thorens.km > d.km), 'review: legend "la nera il comprensorio più grande" and the Val Thorens pros');
 assert.ok(others(serre).every((d) => serre.ratings.apres < d.ratings.apres), 'review: Serre "il più tranquillo delle quattro"');
 assert.ok(others(thorens).every((d) => thorens.ratings.apres > d.ratings.apres), 'review: Val Thorens title "la festa più forte"');
-assert.strictEqual(TRIP.destinations.map((d) => d.grade).join(), "black,red,blue,green", "review: destinations run from the black down");
+assert.strictEqual(TRIP.destinations[0].id, TRIP.favorite, "review: the proposal comes first");
+assert.strictEqual(TRIP.favorite, "alpe", 'review: index.html "rotta su Alpe d\'Huez" and the alternatives\' intro');
+assert.strictEqual(TRIP.destinations.slice(1).map((d) => d.grade).join(), "black,red,green", "review: the alternatives run from the black down, as their intro lists them");
 assert.strictEqual(TRIP.destinations.length, 4, 'review: "quattro" in index.html and the objection');
 assert.strictEqual(tignes.drive, "circa 4 h", 'review: Tignes downside "circa 4 h"');
 assert.strictEqual(alpe.drive, "circa 3 h 30", 'review: Alpe downside "circa 3 h 30"');
-for (const d of [thorens, tignes]) assert.ok(d.downside.includes(`circa ${d.trip.tolls} €`) && d.downside.includes(`circa ${Math.round(d.trip.tolls / 4)} € a testa`), `review: ${d.id} downside states its tolls`);
+for (const d of [thorens, tignes]) assert.ok(d.downside.includes(`circa ${d.trip.tolls} €`), `review: ${d.id} downside states its tolls`);
+assert.strictEqual(Math.round(thorens.pass[3] * 100), Math.round(84.2 * 3 * 100), 'review: Val Thorens "Stima su 84,20 € al giorno"');
 const euros = (note) => [...note.matchAll(/(\d+(?:,\d+)?) €/g)].map((m) => Number(m[1].replace(",", ".")));
 for (const d of [thorens, tignes]) assert.strictEqual(Math.round(euros(d.trip.tollsNote).reduce((a, b) => a + b)), d.trip.tolls, `review: ${d.id} tolls note against its total`);
 for (const d of [alpe, serre]) assert.strictEqual(euros(d.trip.tollsNote)[0] * 2, d.trip.tolls, `review: ${d.id} tolls note against its total`);

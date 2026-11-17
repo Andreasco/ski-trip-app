@@ -5,15 +5,15 @@
 3. In the SQL editor, run `schema.sql`.
 4. Run `node scripts/new-codes.js <published address>`. It writes `discesa-codes.private.txt` in the project root, ignored by git, and prints only its path. Never upload the project folder by hand: only git keeps that file off the site. Run the SQL in that file, in the SQL editor.
 5. In `js/store.js`, set `url` and `publishableKey` from Project Settings, API. Never use the secret or `service_role` key.
-6. Fill `private/content.json` and `private/photos/`, both ignored by git, then run `node scripts/load-private.js`. Names, personal lines, past trips and photos must only ever live there and in the database, never in the public files.
+6. Fill `private/content.json`, ignored by git, then run `node scripts/load-private.js`. Names and personal lines must only ever live there and in the database, never in the public files.
 7. Publish the site, then send each person their own message from the private file.
 
 The Security Advisor will warn about "RLS enabled, no policy" and "anon can execute SECURITY DEFINER". Both are the design: do not add policies to silence them.
 
 ## Changing content
 
-- To add or edit: change `private/content.json` or `private/photos/`, then run `node scripts/load-private.js`.
-- To remove: taking something out of `content.json` does not remove it from the database. In the SQL editor, run `delete from photos where id = '...';` or `delete from past_trips where year = ...;`. Do this at once when someone withdraws consent for a photo.
+- To add or edit: change `private/content.json`, then run `node scripts/load-private.js`.
+- To add a person: add them to `content.json`, run `node scripts/new-codes.js <published address> --add`, run the SQL in the codes file, then `load-private.js`. Whoever is no longer in `content.json` loses their code, with their votes, seat, quotes and proposals.
 
 ## Upgrading
 
