@@ -173,7 +173,7 @@ function startServer(db, net) {
     await refused(`${role} cannot create tables`, () => asRole("create table hack (id int)"));
   }
   // Every function, whatever is added later: authenticated reaches none, anon only this list.
-  const PUBLIC_FUNCTIONS = ["choose_seat", "delete_house", "delete_proposal", "delete_quote", "login", "read_all", "save_house", "save_proposal", "save_quote", "save_vote", "set_official_house", "set_person", "set_proposal_status"];
+  const PUBLIC_FUNCTIONS = ["choose_seat", "delete_house", "delete_proposal", "delete_quote", "delete_vote", "login", "read_all", "save_house", "save_proposal", "save_quote", "save_vote", "set_official_house", "set_person", "set_proposal_status"];
   const grants = (await db.query(`select p.proname as name, has_function_privilege('anon', p.oid, 'execute') as anon, has_function_privilege('authenticated', p.oid, 'execute') as auth
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'`)).rows;
   check("authenticated can call no function", !grants.some((g) => g.auth), grants.filter((g) => g.auth).map((g) => g.name));
@@ -205,7 +205,9 @@ function startServer(db, net) {
   const content = (i) => ({ p_code: CODES.bravo, ...i });
   // Seats: first come, one each, and only your own.
   const seatRows = async () => (await db.query("select seat, person from seats order by seat")).rows.map((r) => `${r.seat}${r.person}`).join();
+  await refused("a seat needs a yes first", () => rpc(db, "choose_seat", { p_code: CODES.bravo, p_seat: 1 }), "not_attending");
   await rpc(db, "choose_seat", { p_code: CODES.alfa, p_seat: 1 });
+  await rpc(db, "save_vote", { p_code: CODES.bravo, p_ranking: ["alpe"], p_attending: true });
   await refused("a taken seat stays taken", () => rpc(db, "choose_seat", { p_code: CODES.bravo, p_seat: 1 }), "seat_taken");
   await refused("a seat outside the car is refused", () => rpc(db, "choose_seat", { p_code: CODES.bravo, p_seat: 5 }));
   await refused("a seat needs a good code", () => rpc(db, "choose_seat", { p_code: "x", p_seat: 2 }), "bad_code");
@@ -217,6 +219,12 @@ function startServer(db, net) {
   await rpc(db, "save_vote", { p_code: CODES.alfa, p_ranking: [], p_attending: false });
   check("passing frees the seat", (await seatRows()) === "", await seatRows());
   await refused("whoever passes cannot sit", () => rpc(db, "choose_seat", { p_code: CODES.alfa, p_seat: 1 }), "not_attending");
+  await rpc(db, "choose_seat", { p_code: CODES.bravo, p_seat: 3 });
+  await refused("taking a vote back needs a good code", () => rpc(db, "delete_vote", { p_code: "x" }), "bad_code");
+  await rpc(db, "delete_vote", { p_code: CODES.alfa });
+  check("taking a vote back touches only your own", (await db.query("select person from votes")).rows.map((r) => r.person).join() === "bravo");
+  await rpc(db, "delete_vote", { p_code: CODES.bravo });
+  check("taking a vote back frees the seat", (await seatRows()) === "", await seatRows());
   await db.exec("delete from votes");
   await refused("only the organizer sets a person", () => rpc(db, "set_person", content({ p_id: "bravo", p_name: "x", p_line: "x", p_position: 0 })), "not_allowed");
   for (const [i, [id, person]] of Object.entries(PEOPLE).entries()) {
@@ -570,7 +578,6 @@ function startServer(db, net) {
     await js(`document.getElementById("budget-reset").click(); $pick("dest", "alpe"); $set("km", "100"); $pick("dest", "thorens");`);
     check("a typed km stays with its destination", (await js(`return document.getElementById("km").value`)) === String(dest("thorens").trip.km));
     await js(`document.getElementById("budget-reset").click();`);
-    check("the verdict gives the cost per day and what it buys", (await js(`return $t("#verdict")`)) === `Stima: ${euro(expected(dest("thorens"), 4) / 4)} a testa per ogni giorno sulla neve, con ${dest("thorens").km} km di piste`, await js(`return $t("#verdict")`));
     await js(`document.getElementById("budget-reset").click(); $pick("dest", "tignes");`);
     await js(`$set("cars", "2");`);
     check("what is typed in the calculator leaves the comparison alone", (await js(`return $t("#compare strong")`)) === euro(expected(TRIP.destinations[0], 4)), await js(`return $t("#compare strong")`));
@@ -732,11 +739,11 @@ function startServer(db, net) {
     await go();
     const partial = await js(`await $until(() => $t("#cost-objection").includes("manca")); const rows = [...document.querySelectorAll("#compare .compare-row")]; const row = rows[${TRIP.destinations.indexOf(dest("serre"))}];
       $pick("dest", "serre"); await new Promise((r) => setTimeout(r, 50));
-      return { number: row.querySelector("strong").textContent, label: row.querySelector("small").textContent,  objection: $t("#cost-objection"), live: $t("#live-total small"), total: $t("#ledger-total-label"), verdict: $t("#verdict"), empty: document.getElementById("house-empty").hidden ? "" : $t("#house-empty") }`);
+      return { number: row.querySelector("strong").textContent, label: row.querySelector("small").textContent,  objection: $t("#cost-objection"), live: $t("#live-total small"), total: $t("#ledger-total-label"), empty: document.getElementById("house-empty").hidden ? "" : $t("#house-empty") }`);
     check("a destination with no lodging says so by name", partial.empty.includes("a Serre Chevalier"), partial);
     check("no price is shown for a destination without a lodging", partial.number === "" && partial.label === "Casa da scegliere", partial);
     check("the objection says which destinations it counts", partial.objection.includes("Manca ancora l'alloggio per Serre Chevalier") && !partial.objection.includes("tutte"), partial);
-    check("the calculator says the total has no lodging", partial.live.includes("senza alloggio") && partial.total.includes("senza alloggio") && partial.verdict.includes("Scegli un alloggio"), partial);
+    check("the calculator says the total has no lodging", partial.live.includes("senza alloggio") && partial.total.includes("senza alloggio"), partial);
     await js(`document.getElementById("quote-note").value = "senza casa"; document.getElementById("quote-form").requestSubmit(); await $until(() => document.querySelector("#quote-list li"));`);
     check("a quote saved without a lodging says so", (await js(`return $t("#quote-list small")`)).includes("Senza alloggio"), await js(`return $t("#quote-list small")`));
     await js(`document.querySelector("[data-delete]").click(); await $until(() => !document.querySelector("#quote-list li"));`);
@@ -768,8 +775,8 @@ function startServer(db, net) {
     await db.exec("delete from houses");
     await go();
     await js(`await $until(() => $t("#house-empty") !== undefined && !document.getElementById("house-empty").hidden);`);
-    const noHouses = await js(`return { signs: $t(".sign-data"), compare: $t("#compare small"), verdict: $t("#verdict"), hero: $t("#hero-cost"), objection: $t("#cost-objection"), ledger: document.getElementById("ledger-body").textContent }`);
-    check("no lodging at all stays honest", noHouses.signs.includes("casa da scegliere") && noHouses.compare === "Casa da scegliere" && noHouses.verdict.includes("Scegli un alloggio") && !noHouses.hero && noHouses.objection.includes("Appena") && noHouses.ledger.includes("Nessun alloggio"), noHouses);
+    const noHouses = await js(`return { signs: $t(".sign-data"), compare: $t("#compare small"), hero: $t("#hero-cost"), objection: $t("#cost-objection"), ledger: document.getElementById("ledger-body").textContent }`);
+    check("no lodging at all stays honest", noHouses.signs.includes("casa da scegliere") && noHouses.compare === "Casa da scegliere" && !noHouses.hero && noHouses.objection.includes("Appena") && noHouses.ledger.includes("Nessun alloggio"), noHouses);
     for (const row of emptied.rows) {
       await db.query("insert into houses (id, person, dest, name, zone, url, nights, total, note, official) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)", [row.id, row.person, row.dest, row.name, row.zone, row.url, row.nights, row.total, row.note, row.official]);
     }
@@ -783,12 +790,17 @@ function startServer(db, net) {
     check("the vote is confirmed", (await js(`return $t("#vote-status")`)).includes(`Voto salvato: ci stai per ${fav.name}`), await js(`return $t("#vote-status")`));
     const tally = () => js(`return [...document.querySelectorAll("#vote-tally li")].map((l) => l.innerText.replace(/\\s+/g, " ").trim())`);
     check("the proposal gets the vote", (await tally())[0] === `${fav.name} La proposta 1 voto`, await tally());
+    check("the vote says what it was, with a way to take it back", (await js(`return $t("#my-vote-text")`)) === `Il tuo voto: ci stai per ${fav.name}.` && await js(`return !document.getElementById("my-vote").hidden`));
+    await js(`document.getElementById("delete-vote").click(); await $until(() => $t("#vote-status").includes("cancellato"));`);
+    const unvoted = await js(`return { results: document.getElementById("vote-results").hidden, mine: document.getElementById("my-vote").hidden, focus: document.activeElement.id }`);
+    check("a vote can be taken back", (await db.query("select 1 from votes where person = 'alfa'")).rows.length === 0 && unvoted.results && unvoted.mine && unvoted.focus === "save-vote", unvoted);
+    await js(`document.getElementById("save-vote").click(); await $until(() => $t("#vote-status").includes("salvato"));`);
     await login("bravo");
     check("others' votes are visible", (await tally())[0] === `${fav.name} La proposta 1 voto`, await tally());
     await js(`document.getElementById("save-pass").click(); await $until(() => $t("#vote-status"));`);
     check("a pass is confirmed", (await js(`return $t("#vote-status")`)).includes("stavolta passi"));
     check("a pass scores nothing", JSON.stringify(await tally()) === JSON.stringify([`${fav.name} La proposta 1 voto`]), await tally());
-    check("a pass shows under the car", (await js(`return $t("#seat-ground")`)).includes("Stavolta passa: Bravo"), await js(`return $t("#seat-ground")`));
+    check("a friend's car shows no one who passes", (await js(`return $t("#seat-ground")`)) === "", await js(`return $t("#seat-ground")`));
     await login("charlie");
     await js(`document.getElementById("save-other").click(); await $until(() => $t("#vote-status"));`);
     check("an alternative needs a choice first", (await js(`return $t("#vote-status")`)).includes("Scegli prima"), await js(`return $t("#vote-status")`));
@@ -842,11 +854,11 @@ function startServer(db, net) {
     const seatState = () => js(`return { free: [...document.querySelectorAll("button.seat.is-free")].length, mine: $t(".seat.is-mine strong"), text: [...document.querySelectorAll("#seats li")].map((l) => l.innerText.replace(/\\s+/g, " ")), ground: $t("#seat-ground"), hint: $t("#seat-hint"), status: $t("#seat-status"), focus: document.activeElement.dataset.seat }`);
     let seen = await seatState();
     check("the car starts empty, every seat named", seen.free === 4 && seen.text.join() === "Guida Libero,Passeggero Libero,Dietro sinistra Libero,Dietro destra Libero", seen);
-    check("who has no seat is named under the car", seen.ground.includes("Ancora a terra: 3 persone.") && !/Alfa|Charlie|Delta/.test(seen.ground) && seen.ground.includes("Stavolta passa: Bravo"), seen);
+    check("a friend sees the car, not who passes or is still on the ground", seen.ground === "", seen);
     await js(`document.querySelector('[data-seat="1"]').click(); await $until(() => $t("#seat-status").includes("preso"));`);
     seen = await seatState();
     check("a free seat can be taken, and everyone sees it", (await db.query("select 1 from seats where seat = 1 and person = 'delta'")).rows.length === 1 && seen.mine === "Delta (tu)", seen);
-    check("taking a seat keeps focus on it, and leaves the ground", seen.focus === "1" && seen.ground.includes("Ancora a terra: 2 persone."), seen);
+    check("taking a seat keeps focus on it", seen.focus === "1", seen);
     await js(`document.querySelector('[data-seat="3"]').click(); await $until(() => document.querySelector('[data-seat="3"].is-mine'));`);
     check("another free seat moves you there", (await db.query("select seat from seats where person = 'delta'")).rows.map((r) => r.seat).join() === "3");
     await rpc(db, "choose_seat", { p_code: CODES.charlie, p_seat: 1 });
@@ -866,7 +878,7 @@ function startServer(db, net) {
     check("your own seat can be left", (await db.query("select 1 from seats where person = 'delta'")).rows.length === 0);
     await login("bravo");
     seen = await seatState();
-    check("whoever passes has no seat to press, and is told why", seen.free === 0 && seen.hint.includes("prima salva il voto"), seen);
+    check("whoever passes has no seat to press, and is told why", seen.free === 0 && seen.hint.includes("prima dimmi che ci stai"), seen);
     await js(`document.getElementById("save-vote").click(); await $until(() => document.querySelector("button.seat.is-free"));`);
     check("voting again opens the seats", (await seatState()).free === 2, await seatState());
     await rpc(db, "save_vote", { p_code: CODES.bravo, p_ranking: [], p_attending: false });
@@ -874,6 +886,8 @@ function startServer(db, net) {
     check("a pass frees the seat for the others", (await db.query("select 1 from seats where person = 'charlie'")).rows.length === 0);
     await rpc(db, "save_vote", { p_code: CODES.charlie, p_ranking: TRIP.destinations.map((d) => d.id), p_attending: true });
     await db.exec("delete from seats");
+    await login("alfa");
+    check("only the organizer sees who is on the ground or passing", (await js(`return $t("#seat-ground")`)) === "Ancora a terra: 3 persone. Stavolta passa: Bravo.", await js(`return $t("#seat-ground")`));
 
     // Failures must say so
     console.error(`[${Math.round(process.uptime())}s] Failures must say so: ${passed} ok, ${failures.length} failed`);

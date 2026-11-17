@@ -95,6 +95,10 @@ globalThis.store = (() => {
       await call("set_official_house", { p_id: id });
       await api.refresh();
     },
+    async deleteVote() {
+      await call("delete_vote", {});
+      await api.refresh();
+    },
     async saveVote({ ranking, attending }) {
       await call("save_vote", { p_ranking: ranking, p_attending: attending });
       await api.refresh();

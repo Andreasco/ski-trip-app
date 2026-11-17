@@ -186,7 +186,21 @@ begin
 end;
 $$;
 
--- A null seat gets up. A seat already taken stays with whoever took it first.
+-- Takes back your own vote, whatever it was. Without a yes there is no seat, except for the organizer.
+create or replace function delete_vote(p_code text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  me people := person_from_code(p_code);
+begin
+  delete from votes where person = me.id;
+  if not me.organizer then
+    delete from seats where person = me.id;
+  end if;
+end;
+$$;
+
+-- A null seat gets up. A seat needs a yes first, except for the organizer, who is aboard anyway.
+-- A seat already taken stays with whoever took it first.
 create or replace function choose_seat(p_code text, p_seat integer) returns void
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -196,7 +210,8 @@ begin
     delete from seats where person = me.id;
     return;
   end if;
-  if exists (select 1 from votes where person = me.id and not attending) then
+  if exists (select 1 from votes where person = me.id and not attending)
+    or (not me.organizer and not exists (select 1 from votes where person = me.id and attending)) then
     raise exception 'not_attending';
   end if;
   if exists (select 1 from seats where seat = p_seat and person <> me.id) then
@@ -315,10 +330,10 @@ $$;
 
 revoke all on function hash_code(text), person_from_code(text) from public, anon, authenticated;
 revoke all on function login(text), read_all(text), save_quote(text, jsonb), delete_quote(text, uuid),
-  save_vote(text, text[], boolean), choose_seat(text, integer), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
+  save_vote(text, text[], boolean), delete_vote(text), choose_seat(text, integer), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
   save_house(text, jsonb), delete_house(text, uuid), set_official_house(text, uuid),
   set_person(text, text, text, text, integer) from public, authenticated;
 grant execute on function login(text), read_all(text), save_quote(text, jsonb), delete_quote(text, uuid),
-  save_vote(text, text[], boolean), choose_seat(text, integer), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
+  save_vote(text, text[], boolean), delete_vote(text), choose_seat(text, integer), save_proposal(text, text), delete_proposal(text, uuid), set_proposal_status(text, uuid, text),
   save_house(text, jsonb), delete_house(text, uuid), set_official_house(text, uuid),
   set_person(text, text, text, text, integer) to anon;

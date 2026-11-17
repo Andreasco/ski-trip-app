@@ -296,6 +296,8 @@ legend, .field label, .vote-label { font-weight: 800; display: block; margin-bot
 .choices-light .choice:has(input:focus-visible) { outline-color: var(--ink); }
 .choices-light .disc { width: 1rem; height: 1rem; }
 #vote-other { margin-top: 1rem; }
+.my-vote { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 1rem; }
+.my-vote p { margin: 0; font-weight: 700; }
 #vote-other[open] > summary { margin-bottom: .8rem; }
 #save-other { margin-top: 12px; }
 .compare-tag { display: block; margin-top: 2px; font: 700 .8125rem/1.2 var(--body); }
@@ -320,7 +322,6 @@ input[type="number"], select { width: 100%; min-height: 50px; padding: .4rem .7r
 .tag { display: inline-block; margin-top: .2rem; font-size: .8125rem; font-weight: 600; color: #30496f; }
 .ledger small { display: inline-block; font-weight: 400; line-height: 1.3; color: #3c4a60; }
 
-.verdict { font-weight: 800; font-size: 1.2rem; }
 .compare { display: grid; gap: 8px; list-style: none; padding: 0; margin: .4rem 0 0; }
 .compare-row { display: grid; grid-template-columns: auto 1fr auto; column-gap: 10px; align-items: center; min-height: 64px; padding: .6rem .8rem; color: var(--ink); text-decoration: none; background: var(--snow) var(--paper, none); border: 2px solid var(--deep); border-radius: 4px; transition: background-color .18s ease-out; }
 .compare-row:hover { background-color: #fff; }

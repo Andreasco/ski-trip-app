@@ -110,7 +110,6 @@
             <tbody id="ledger-body"></tbody>
             <tfoot><tr><th id="ledger-total-label" scope="row">Totale a testa</th><td id="ledger-total"></td></tr><tr class="ledger-group"><th scope="row">Totale del gruppo</th><td id="ledger-group"></td></tr></tfoot>
           </table>
-          <p id="verdict" class="verdict" role="status"></p>
         </div>
         <details id="budget-edit" class="unfold">
           <summary>Cambia le voci e salva un preventivo<svg class="fold-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg></summary>
@@ -194,7 +193,6 @@
         <div><dt>...non ho ferie</dt><dd>Dal 4 al 7 febbraio è da giovedì a domenica: partendo presto e tornando la domenica sera, bastano 2 giorni di ferie per 4 giorni di sci, o uno solo per 3. La data è una proposta.</dd></div>
         <div><dt>...che fatica organizzare</dt><dd>Organizzo io. A te tocca una cosa sola: votare, e poi caricare gli sci in auto.</dd></div>
       </dl>
-      <p class="hand">Se la risposta è no, è no. Nessuna multa e nessun processo nel gruppo.</p>
     </section>
 
     <section id="vota" class="section section-sky">
@@ -234,6 +232,10 @@
           <fieldset id="other-choices" class="choices choices-light"><legend>Quale?</legend></fieldset>
           <button id="save-other" type="button" class="btn">Salva la mia alternativa</button>
         </details>
+        <div id="my-vote" class="my-vote" hidden>
+          <p id="my-vote-text"></p>
+          <button id="delete-vote" type="button" class="btn btn-small btn-quiet">Cancella il mio voto</button>
+        </div>
         <p id="vote-status" class="status" role="status"></p>
         <h3>Vuoi cambiare il piano?</h3>
         <form id="proposal-form" class="proposal-form">

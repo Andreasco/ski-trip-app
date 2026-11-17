@@ -248,7 +248,6 @@
     $("#live-total").innerHTML = `<span>${dest.name}, ${state.days} giorni</span><strong>${euro(cost.total)}</strong><small>${noStay ? "a testa, senza alloggio" : "a testa"}</small>`;
     $("#ledger-group").textContent = euro(cost.groupTotal);
 
-    $("#verdict").textContent = noStay ? "Scegli un alloggio e il conto è completo" : `Stima: ${euro(cost.total / state.days)} a testa per ogni giorno sulla neve, con ${dest.km} km di piste`;
 
     FIELDS.forEach(({ id }) => {
       const input = $(`#${id}`);
@@ -555,7 +554,7 @@
 
     // Seen from above with the windscreen at the top, driving on the left.
     const SEATS = ["Guida", "Passeggero", "Dietro sinistra", "Dietro destra"];
-    const PASSED = "Stavolta passi: per salire, prima salva il voto.";
+    const NO_YES = "Per salire in auto, prima dimmi che ci stai: il voto è qui sotto.";
 
     const renderSeats = () => {
       const votes = store.listVotes();
@@ -581,13 +580,15 @@
         const vote = votes.find((row) => row.person === person?.id);
         return vote ? (vote.attending ? "A bordo" : "Stavolta passa") : person?.organizer ? "A bordo" : "Da confermare";
       };
-      const passed = votes.find((row) => row.person === self)?.attending === false;
+      // The car is made of who said yes; the organizer is aboard unless passing.
+      const myVote = votes.find((row) => row.person === self);
+      const canSit = myVote ? myVote.attending : !!store.session?.organizer;
       $("#seats").innerHTML = SEATS.map((where, index) => {
         const taken = seats.find((row) => row.seat === index + 1);
         const data = `data-seat="${index + 1}"`;
         if (!taken) {
           const inside = `<small>${where}</small><strong>Libero</strong>`;
-          return `<li>${passed ? `<div class="seat is-free">${inside}</div>` : `<button type="button" class="seat is-free" ${data} aria-label="Sali qui: ${where}">${inside}</button>`}</li>`;
+          return `<li>${!canSit ? `<div class="seat is-free">${inside}</div>` : `<button type="button" class="seat is-free" ${data} aria-label="Sali qui: ${where}">${inside}</button>`}</li>`;
         }
         const person = people.find((p) => p.id === taken.person);
         const status = statusOf(person);
@@ -600,16 +601,20 @@
       const names = (list) => list.map((p) => escapeHtml(p.name || p.id)).join(", ");
       const ground = standing.filter((p) => statusOf(p) !== "Stavolta passa");
       const away = standing.filter((p) => statusOf(p) === "Stavolta passa");
-      $("#seat-ground").innerHTML = [ground.length && `Ancora a terra: ${ground.length === 1 ? "una persona" : `${ground.length} persone`}.`, away.length && `Stavolta passa: ${names(away)}.`].filter(Boolean).join(" ");
-      $("#seat-hint").textContent = passed ? PASSED : seats.some((row) => row.person === self) ? "Tocca un posto libero per cambiare, o il tuo per scendere." : "Tocca un posto libero per salire.";
+      // Friends see the car as it is; who is still on the ground or passing is for the organizer.
+      $("#seat-ground").innerHTML = !store.session?.organizer ? "" : [ground.length && `Ancora a terra: ${ground.length === 1 ? "una persona" : `${ground.length} persone`}.`, away.length && `Stavolta passa: ${names(away)}.`].filter(Boolean).join(" ");
+      $("#seat-hint").textContent = !canSit ? NO_YES : seats.some((row) => row.person === self) ? "Tocca un posto libero per cambiare, o il tuo per scendere." : "Tocca un posto libero per salire.";
     };
 
     const renderMine = () => {
       const voter = store.session?.person;
       $("#voter-name").textContent = voter ? nameOf(voter) : "";
-      if (touched) return;
       const mine = store.listVotes().find((vote) => vote.person === voter);
       const id = mine?.attending ? choiceOf(mine) : null;
+      $("#my-vote").hidden = !mine;
+      $("#my-vote-text").textContent = !mine ? "" : !mine.attending ? "Il tuo voto: stavolta passi."
+        : id === fav.id ? `Il tuo voto: ci stai per ${fav.name}.` : id ? `Il tuo voto: preferiresti ${byId(id).name}.` : "Il tuo voto: ci stai.";
+      if (touched) return;
       const radio = id && id !== fav.id && document.querySelector(`input[name="other"][value="${id}"]`);
       document.querySelectorAll('input[name="other"]').forEach((input) => { input.checked = input === radio; });
       if (radio) $("#vote-other").open = true;
@@ -623,6 +628,14 @@
       touched = false;
       renderShared();
     };
+    $("#delete-vote").addEventListener("click", async () => {
+      const done = await attempt($("#vote-status"), "Voto cancellato: puoi votare di nuovo quando vuoi.", () => store.deleteVote(), $("#delete-vote"), { busy: "Cancello…", failed: "cancellare il voto" });
+      if (!done) return;
+      touched = false;
+      renderShared();
+      // The button is gone with the vote: the next thing to do is vote again.
+      $("#save-vote").focus();
+    });
     $("#other-choices").addEventListener("input", () => {
       touched = true;
       $("#vote-status").textContent = "";
@@ -643,7 +656,7 @@
       const ok = await attempt($("#seat-status"), leaving ? "Posto liberato: ora lo vediamo tutti." : "Posto preso: ora lo vediamo tutti.", () => store.chooseSeat(leaving ? null : seat), button, {
         busy: "Un attimo…",
         failed: "salvare il posto",
-        known: { seat_taken: "Quel posto è appena stato preso: scegline un altro.", not_attending: PASSED },
+        known: { seat_taken: "Quel posto è appena stato preso: scegline un altro.", not_attending: NO_YES },
       });
       // A refusal means this page is behind: show who took the seat.
       if (ok) renderShared();
