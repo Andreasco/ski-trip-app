@@ -51,7 +51,7 @@
   <header id="top" class="hero">
     <canvas id="hero-canvas" role="img" aria-label="Panorama dipinto di Alpe d'Huez e del Pic Blanc"></canvas>
     <div class="cartouche">
-      <h1 tabindex="-1">Nuova squadra, rotta su Alpe d'Huez</h1>
+      <h1 tabindex="-1">Pronti a rotolare per Alpe d'Huez</h1>
       <p id="personal" class="hand">Ho fatto i conti e disegnato le piste. A te restano solo le gambe.</p>
       <p class="offer">Dal 4 al 7 febbraio 2027, da Torino in auto, 4 giorni di sci. <span id="hero-cost"></span></p>
     </div>
@@ -86,13 +86,12 @@
 
     <section id="conto" class="section section-deep">
       <h2>Il conto, già fatto</h2>
-      <p class="measure">Tocca una meta per vedere ogni voce e cosa ti porti a casa. Tutte le cifre sono a testa, benzina e pedaggi compresi; solo gli alloggi hanno il prezzo totale, da dividere tra chi viene.</p>
+      <p class="measure">Ogni voce del viaggio, e cosa ti porti a casa. Tutte le cifre sono a testa, benzina e pedaggi compresi; solo gli alloggi hanno il prezzo totale, da dividere tra chi viene.</p>
       <p id="live-total" class="live-total"></p>
       <div id="budget-form" class="budget">
         <p id="budget-status" class="deep-note budget-status" role="status" tabindex="-1"></p>
         <div class="budget-pick">
-          <fieldset id="compare" class="compare"><legend>Le quattro mete a confronto, a testa</legend></fieldset>
-          <p id="compare-note" class="deep-note"></p>
+          <p id="budget-dest" class="deep-note budget-dest" tabindex="-1"></p>
           <fieldset class="choices">
             <legend>Giorni di sci</legend>
             <label class="choice"><input type="radio" name="days" value="3">3 giorni</label>
@@ -180,7 +179,11 @@
 
     <section id="alternative" class="section">
       <h2>Le alternative</h2>
-      <p class="measure">Se Alpe d'Huez non ti convince, ognuna di queste ha il suo primato: la nera il comprensorio più grande, la rossa la quota più alta, la verde il viaggio più corto. Tocca per aprire la scheda.</p>
+      <p class="measure">Se Alpe d'Huez non ti convince, ognuna di queste ha il suo primato: la nera il comprensorio più grande, la rossa la quota più alta, la verde il viaggio più corto.</p>
+      <h3>Le quattro mete a confronto, a testa</h3>
+      <ul id="compare" class="compare"></ul>
+      <p id="compare-note" class="fine"></p>
+      <h3>Le schede</h3>
       <div id="alt-list" class="alt-list"></div>
     </section>
 

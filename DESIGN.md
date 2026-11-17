@@ -406,10 +406,13 @@ The offline map: graded lines at 2.6px on a white ground inside a 3px ink frame,
 The closing image, painted from an authored drawing with a jagged night range. The hut and skis are too small for the panorama brush, so they get a finer brush with a soft restamp over it. The piste stays crisper, because the rail lands on it. The brush grows with the scene's width, so a wide screen keeps the same painted grain as a phone.
 
 ### Car Frame
-Four seats inside a car seen from above, painted at runtime with the panorama brush from an authored drawing: body, windscreen, rear window, mirrors and wheels. Two columns of 10px seats in snow with paper grain sit on top, named by position, with the person and their status beneath. A free seat is a control in deep text, marked Libero; your own carries a 3px inset line in its text colour and can be left. A seat turns ink with dark board grain and white text once its person is aboard. Whoever has no seat is named in a line under the car. Until the painting lands, or if it fails, the car is a plain deep rounded block with its seats. The painting then settles in over .4s, like the bar scene, and lands at once under reduced motion.
+Four seats inside a car seen from above, painted at runtime with the panorama brush from an authored drawing: body, windscreen, rear window, mirrors and wheels. Two columns of 10px seats in snow with paper grain sit on top, named by position, with the person and their status beneath. A free seat is a control in deep text, marked Libero; your own carries a 3px inset line in its text colour and can be left. A seat turns ink with dark board grain and white text once its person is aboard. A line under the car counts who has no seat yet and names only who passes this time. Until the painting lands, or if it fails, the car is a plain deep rounded block with its seats. The painting then settles in over .4s, like the bar scene, and lands at once under reduced motion.
 
 ### Pros Board
 A square deep blue board right after a destination's pitch, with snow text at weight 700 and a native list. The caveats come last in the card, as a plain note at the same reading size: nothing is hidden, the pros simply speak first.
+
+### Comparison Rows
+In the alternatives chapter, before the folds: one paper row per destination with a 2px deep border, the proposal's in the 4px double ink rule. Disc, name (the proposal tagged), the figure per head with its kilometres of piste, and the lodging beneath. Each row is a link that prices that destination in the bill and moves focus to the line naming it; the row being priced carries aria-current and an ink "Nel conto" tag. The flight's pills follow the same order: the proposal as a full-width pill, then "Oppure un'alternativa" and the other three.
 
 ### Alternative Fold
 Each alternative is a native details on paper with the 4px double ink rule: disc, name in Bowlby One at 1.35rem, its grade line in bold and drive and kilometres beneath, with the chevron. Opened, it shows the plate at 52svh and the same card body as the proposal; its painting starts only then.
@@ -417,7 +420,7 @@ Each alternative is a native details on paper with the 4px double ink rule: disc
 A paper strip with a 4px double ink rule, sticky through the whole Conto band, lodgings and saved quotes included, and no further. It holds the destination and days at 0.9375rem, the total in Bowlby One at 1.5rem, and the words "a testa".
 
 ### Quote Calculator
-The answer comes first: destination rows, one control holding disc, name, published figure per head with the kilometres of piste it buys, and lodging, then the ledger with its "Voce / A testa" header and the verdict. The number fields stay folded in a native details under "Cambia le voci", grouped by who pays (the group, split among everyone, per head) in fieldsets with a Bowlby One legend at 1.2rem. Each group is a two-column grid at every width, with a 12px gap, labels at 0.9375rem and inputs aligned to the bottom so uneven labels keep them level.
+The answer comes first: one line naming the destination being priced (the proposal, or an alternative with a small button back to the proposal), the days and people picks, then the ledger with its "Voce / A testa" header and the verdict. The number fields stay folded in a native details under "Cambia le voci", grouped by who pays (split among everyone, per head) in fieldsets with a Bowlby One legend at 1.2rem. Each group is a two-column grid at every width, with a 12px gap, labels at 0.9375rem and inputs aligned to the bottom so uneven labels keep them level.
 
 ### Lodging Row
 Only the selected destination's lodgings show, under its disc and name, so the list follows the calculator.

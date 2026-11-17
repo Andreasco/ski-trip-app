@@ -89,7 +89,7 @@
 
   const FIELDS = [
     // The limits match the checks in supabase/schema.sql.
-    { id: "cars", label: "Auto", group: "Il gruppo", min: 1, max: 50, step: 1, whole: true },
+    { id: "cars", label: "Auto", group: "Si divide tra tutti", min: 1, max: 50, step: 1, whole: true },
     { id: "km", label: "Km andata e ritorno", group: "Si divide tra tutti", min: 0, max: 100000, step: 10, perDest: true },
     { id: "consumption", label: "Litri per 100 km", group: "Si divide tra tutti", min: 0, max: 100, step: 0.5 },
     { id: "fuelPrice", label: "Carburante, € al litro", group: "Si divide tra tutti", min: 0, max: 100, step: 0.01 },
@@ -256,21 +256,28 @@
     });
 
     TRIP.destinations.forEach((d) => {
-      // Each destination with the days and people picked here; what is typed further down stays in the calculator.
+      // Each destination with the days and people picked in the bill; what is typed there stays in the calculator.
       const row = document.querySelector(`#compare [data-row="${d.id}"]`);
       const house = houseOf(d);
       const total = house ? costOf(d, state.days, people).total : 0;
       row.querySelector(".compare-figure").innerHTML = house ? `<strong>${euro(total)}</strong><small>${d.km} km di piste</small>` : `<strong></strong><small>Casa da scegliere</small>`;
+      if (d.id === state.dest) row.setAttribute("aria-current", "true");
+      else row.removeAttribute("aria-current");
       row.querySelector(".compare-stay").textContent = house ? `${house.name}, ${euro(houseTotal(house, state.days - 1))} per ${nightsWord(state.days - 1)}` : "";
     });
-    $("#compare-note").textContent = `Le mete seguono giorni e persone scelti qui, con ${nightsWord(state.days - 1)} e ${TRIP.defaults.shared.cars} auto. Quello che cambi in "Cambia le voci" resta solo nel conto qui sotto.`;
+    $("#compare-note").textContent = `Cifre di listino con ${state.days} giorni, ${nightsWord(state.days - 1)} e ${peopleCount(people)}; quello che cambi in "Cambia le voci" resta solo nel conto. Tocca una meta per vederne il conto voce per voce.`;
+    const fav = byId(TRIP.favorite);
+    $("#conto").dataset.dest = dest.id;
+    $("#budget-dest").innerHTML = dest === fav
+      ? `Il conto della proposta, ${fav.name}. Le altre tre mete sono a confronto nelle <a href="#alternative">alternative</a>.`
+      : `Stai guardando ${dest.name}, un'alternativa. <button type="button" class="btn btn-small" data-budget="${fav.id}">Torna ad ${fav.name}</button>`;
     $("#quote-what").textContent = `${dest.name}, ${state.days} giorni, ${euro(cost.total)} a testa${noStay ? ", senza alloggio" : ""}.`;
     renderHouses();
   }
 
   function setupBudget() {
-    $("#compare").insertAdjacentHTML("beforeend", TRIP.destinations.map((d) => `
-      <label class="choice compare-row" data-row="${d.id}">${disc(d.grade)}<input type="radio" name="dest" value="${d.id}" ${d.id === state.dest ? "checked" : ""}><span class="compare-name">${keepSlash(d.name)}${d.id === TRIP.favorite ? `<span class="compare-tag">La proposta</span>` : ""}</span><span class="compare-figure"></span><span class="compare-stay"></span></label>`).join(""));
+    $("#compare").innerHTML = TRIP.destinations.map((d) => `
+      <li><a class="compare-row" href="#conto" data-row="${d.id}" data-budget="${d.id}">${disc(d.grade)}<span class="compare-name">${keepSlash(d.name)}${d.id === TRIP.favorite ? `<span class="compare-tag">La proposta</span>` : ""}</span><span class="compare-figure"></span><span class="compare-stay"></span></a></li>`).join("");
 
     const groups = [...new Set(FIELDS.map((f) => f.group))];
     $("#budget-fields").innerHTML = groups.map((group) => `
@@ -285,7 +292,6 @@
       const { name, value, type, id } = event.target;
       if (id === "quote-note") return;
       $("#budget-status").textContent = "";
-      if (name === "dest") state.dest = value;
       if (name === "people") state.shared.people = Number(value);
       if (name === "days") {
         state.days = Number(value);
@@ -338,8 +344,6 @@
   function selectBudgetDest(id) {
     $("#budget-status").textContent = "";
     state.dest = id;
-    const radio = document.querySelector(`input[name="dest"][value="${id}"]`);
-    if (radio) radio.checked = true;
     renderBudget();
   }
 
@@ -417,7 +421,6 @@
         else if (flatTotal !== stayCost(reopened, nights)) typed.flat = flatTotal;
         if (pass !== reopened.pass[days]) typed[`pass${days}`] = pass;
         state.perDest[dest] = typed;
-        document.querySelector(`input[name="dest"][value="${dest}"]`).checked = true;
         document.querySelector(`input[name="days"][value="${days}"]`).checked = true;
         const together = document.querySelector(`input[name="people"][value="${people}"]`);
         if (together) together.checked = true;
@@ -506,7 +509,6 @@
       $("#house-add").open = false;
       // The list shows one destination: go to the one just added to.
       state.dest = select.value;
-      document.querySelector(`input[name="dest"][value="${state.dest}"]`).checked = true;
       renderShared();
       $("#house-status").focus();
     });
@@ -534,7 +536,6 @@
         if (house.nights + 1 in byId(house.dest).pass) state.days = house.nights + 1;
         delete edits(byId(house.dest)).flat;
         edits(byId(house.dest)).house = house.id;
-        document.querySelector(`input[name="dest"][value="${state.dest}"]`).checked = true;
         document.querySelector(`input[name="days"][value="${state.days}"]`).checked = true;
         renderBudget();
         showBudgetStatus(`${house.name} è nel conto: puoi modificarlo in Cambia le voci. Le cifre delle mete non cambiano.`);
@@ -599,7 +600,7 @@
       const names = (list) => list.map((p) => escapeHtml(p.name || p.id)).join(", ");
       const ground = standing.filter((p) => statusOf(p) !== "Stavolta passa");
       const away = standing.filter((p) => statusOf(p) === "Stavolta passa");
-      $("#seat-ground").innerHTML = [ground.length && `Ancora a terra: ${names(ground)}.`, away.length && `Stavolta passa: ${names(away)}.`].filter(Boolean).join(" ");
+      $("#seat-ground").innerHTML = [ground.length && `Ancora a terra: ${ground.length === 1 ? "una persona" : `${ground.length} persone`}.`, away.length && `Stavolta passa: ${names(away)}.`].filter(Boolean).join(" ");
       $("#seat-hint").textContent = passed ? PASSED : seats.some((row) => row.person === self) ? "Tocca un posto libero per cambiare, o il tuo per scendere." : "Tocca un posto libero per salire.";
     };
 
@@ -1016,8 +1017,9 @@
   }
 
   function setupFlight() {
-    $("#flight-dest").innerHTML = TRIP.destinations.map((d) => `
-      <button type="button" class="pill" data-flight="${d.id}" aria-pressed="${d.id === flight.dest}">${d.name}</button>`).join("");
+    const fav = byId(TRIP.favorite);
+    const pill = (d, look = "pill") => `<button type="button" class="${look}" data-flight="${d.id}" aria-pressed="${d.id === flight.dest}">${d.name}</button>`;
+    $("#flight-dest").innerHTML = `${pill(fav, "pill pill-main")}<span class="pills-or">Oppure un'alternativa:</span>${TRIP.destinations.filter((d) => d !== fav).map((d) => pill(d)).join("")}`;
     $("#flight-dest").addEventListener("click", (event) => {
       const id = event.target.dataset?.flight;
       if (id) fly(id);
@@ -1030,7 +1032,13 @@
       const flyLink = event.target.closest("[data-fly]");
       if (flyLink) fly(flyLink.dataset.fly);
       const budgetLink = event.target.closest("[data-budget]");
-      if (budgetLink) selectBudgetDest(budgetLink.dataset.budget);
+      if (!budgetLink) return;
+      // The script lands on the bill itself; the address stays as the way in without scripts.
+      if (budgetLink.matches("a[href]")) event.preventDefault();
+      selectBudgetDest(budgetLink.dataset.budget);
+      // Wherever the tap came from, the bill now names what it prices: land there, below the sticky total.
+      $("#budget-dest").focus({ preventScroll: true });
+      $("#budget-dest").scrollIntoView();
     });
   }
 

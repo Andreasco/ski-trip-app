@@ -58,6 +58,8 @@ const HELPERS = `
     el.dispatchEvent(new Event("input", { bubbles: true }));
   };
   window.$pick = (name, value) => {
+    // A destination is picked as a visitor does it: from a link that prices it in the bill.
+    if (name === "dest") return document.querySelector('[data-budget="' + value + '"]').click();
     const el = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
     el.checked = true;
     el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -474,6 +476,12 @@ function startServer(db, net) {
       await js(`document.getElementById("alternative").scrollIntoView();`);
       await settle();
       await shot("g24-alternatives");
+      await js(`document.getElementById("volo").scrollIntoView();`);
+      await settle();
+      await shot("g26-flight-pills");
+      await js(`document.getElementById("compare").scrollIntoView({ block: "center" });`);
+      await settle();
+      await shot("g27-compare");
       await js(`document.getElementById("thorens").open = true; document.getElementById("thorens").scrollIntoView(); await $until(() => document.querySelector('[data-paint="thorens"]').dataset.painted, 15000);`);
       await settle();
       await shot("g25-alternative-open");
@@ -494,7 +502,7 @@ function startServer(db, net) {
     const dated = await js(`return document.documentElement.outerHTML`);
     check("the new dates are on the page, the old ones nowhere", dated.includes("Dal 4 al 7 febbraio 2027") && !/18 al 21|Cervin|Zermatt|Orelle/.test(dated), dated.match(/.{30}(18 al 21|Cervin|Zermatt|Orelle).{30}/)?.[0]);
     const fold = await js(`const form = document.getElementById("budget-form"); const after = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-      return { closed: !document.getElementById("budget-edit").open && !document.getElementById("house-add").open, order: after(document.getElementById("compare"), document.querySelector(".ledger")) && after(document.querySelector(".ledger"), document.getElementById("budget-fields")), listFirst: after(document.getElementById("house-list"), document.getElementById("house-form")), lodgingsFirst: after(document.getElementById("house-list"), document.getElementById("quote-list")), fieldVisible: document.getElementById("cars").checkVisibility(), head: $t(".ledger thead"), legends: [...document.querySelectorAll("#budget-fields legend")].map((l) => l.textContent).join() }`);
+      return { closed: !document.getElementById("budget-edit").open && !document.getElementById("house-add").open, order: after(document.getElementById("budget-dest"), document.querySelector(".ledger")) && after(document.querySelector(".ledger"), document.getElementById("budget-fields")), listFirst: after(document.getElementById("house-list"), document.getElementById("house-form")), lodgingsFirst: after(document.getElementById("house-list"), document.getElementById("quote-list")), fieldVisible: document.getElementById("cars").checkVisibility(), head: $t(".ledger thead"), legends: [...document.querySelectorAll("#budget-fields legend")].map((l) => l.textContent).join() }`);
     check("the answer comes before the controls, which stay folded", fold.closed && fold.order && !fold.fieldVisible, fold);
     check("lodgings come before their form and before the saved quotes", fold.listFirst && fold.lodgingsFirst, fold);
     check("the ledger says each amount is per head", fold.head.includes("A testa"), fold);
@@ -504,7 +512,24 @@ function startServer(db, net) {
       return { during: during.top, past: strip.getBoundingClientRect().bottom <= document.getElementById("obiezioni").getBoundingClientRect().top + 1 }`);
     check("the total stays pinned through the saved quotes", pinned.during >= 0 && pinned.during < 5, pinned);
     check("the total lets go before the objections", pinned.past, pinned);
-    check("fields are grouped by who pays", fold.legends === "Il gruppo,Si divide tra tutti,A testa", fold);
+    const way = await js(`$pick("dest", "tignes"); await new Promise((r) => setTimeout(r, 50)); const away = $t("#budget-dest"); document.querySelector('#budget-dest [data-budget]').click(); await new Promise((r) => setTimeout(r, 50));
+      return { away, back: $t("#budget-dest"), dest: document.getElementById("conto").dataset.dest, focus: document.activeElement.id, inBill: !document.querySelector("#conto #compare"), current: document.querySelector('#compare [aria-current="true"]')?.dataset.row }`);
+    check("the bill prices one destination, the comparison lives in the alternatives", way.inBill, way);
+    check("an alternative in the bill says so, with the way back", way.away.includes("Stai guardando Tignes / Val d'Isère") && way.dest === "alpe" && way.back.startsWith("Il conto della proposta") && way.focus === "budget-dest" && way.current === "alpe", way);
+    const pills = await js(`return { main: document.querySelector("#flight-dest .pill-main")?.dataset.flight, rest: [...document.querySelectorAll("#flight-dest .pill:not(.pill-main)")].map((b) => b.dataset.flight).join() }`);
+    if (SHOTS) {
+      await js(`$pick("dest", "tignes"); document.getElementById("budget-dest").scrollIntoView({ block: "center" });`);
+      await settle();
+      await shot("g36-bill-alternative");
+      await js(`document.getElementById("compare").scrollIntoView({ block: "center" });`);
+      await settle();
+      await shot("g37-compare-current");
+      await js(`$pick("dest", "alpe");`);
+    }
+    const row = await js(`document.querySelector('#compare [data-row="serre"]').click(); const b = document.getElementById("budget-dest"); await $until(() => { const y = b.getBoundingClientRect().top; return y > 0 && y < 400; }, 4000); const r = { focus: document.activeElement.id, dest: document.getElementById("conto").dataset.dest, top: Math.round(document.getElementById("budget-dest").getBoundingClientRect().top) }; $pick("dest", "alpe"); return r;`);
+    check("a comparison row prices its destination and lands on the bill", row.focus === "budget-dest" && row.dest === "serre" && row.top > 0 && row.top < 400, row);
+    check("the flight offers the proposal first, then the alternatives", pills.main === TRIP.favorite && pills.rest === alternatives.map((d) => d.id).join(), pills);
+    check("fields are grouped by who pays", fold.legends === "Si divide tra tutti,A testa", fold);
     const stays = await js(`return [...document.querySelectorAll("#compare .compare-stay")].map((e) => e.textContent)`);
     TRIP.destinations.forEach((d, i) => check(`comparison names the ${d.id} lodging and its total`, stays[i] === `Casa ${d.id}, ${euro(HOUSES[d.id])} per 3 notti`, stays[i]));
     check("nothing of the removed pass option is left", await js(`return !document.getElementById("pass-option")`));
@@ -616,7 +641,7 @@ function startServer(db, net) {
       const f = document.getElementById("house-form"); f.requestSubmit(); f.requestSubmit();
       await $until(() => $t("#house-status"));`);
     check("a lodging is saved once", (await db.query("select 1 from houses where total = 400")).rows.length === 1);
-    check("saving moves the view to the destination added to", await js(`return document.querySelector('input[name="dest"]:checked').value === "alpe" && $t("#house-list h4").includes("Alpe") && $t("#ledger-caption").includes("Alpe")`));
+    check("saving moves the view to the destination added to", await js(`return document.getElementById("conto").dataset.dest === "alpe" && $t("#house-list h4").includes("Alpe") && $t("#ledger-caption").includes("Alpe")`));
     check("a lodging's fields are escaped", await js(`return !window.__xss && !document.querySelector("#house-list img, #house-list b, #house-list i, #house-list script")`));
     check("the form clears after saving", (await js(`return document.getElementById("house-name").value`)) === "");
     check("a lodging can be deleted by its author", (await js(`return document.querySelectorAll("[data-drop]").length`)) === 1);
@@ -633,9 +658,9 @@ function startServer(db, net) {
     const alpePublished = `stima ${euro(expected(dest("alpe"), 4))}`;
     check("a star beats a cheaper lodging", (await alpeSign()).includes(alpePublished), await alpeSign());
     const untouched = await js(`return [...document.querySelectorAll(".sign-data")].map((e) => e.textContent).join()`);
-    const publishedCompare = await js(`return [...document.querySelectorAll("#compare .choice")].map((l) => l.innerText).join()`);
+    const publishedCompare = await js(`return [...document.querySelectorAll("#compare .compare-row")].map((l) => l.innerText).join()`);
     await js(`document.querySelector("[data-drop]").closest("li").querySelector("[data-use]").click(); await new Promise((r) => setTimeout(r, 100));`);
-    check("use in the quote fills the calculator", (await js(`return document.querySelector('input[name="dest"]:checked').value + document.querySelector('input[name="days"]:checked').value + document.getElementById("nights").value + document.getElementById("flat").value`)) === "alpe44400", await js(`return document.getElementById("nights").value + "/" + document.getElementById("flat").value`));
+    check("use in the quote fills the calculator", (await js(`return document.getElementById("conto").dataset.dest + document.querySelector('input[name="days"]:checked').value + document.getElementById("nights").value + document.getElementById("flat").value`)) === "alpe44400", await js(`return document.getElementById("nights").value + "/" + document.getElementById("flat").value`));
     check("trying a lodging opens the fields", await js(`return document.getElementById("budget-edit").open`));
     check("use in the quote prices it", (await js(`return $t("#ledger-total")`)) === euro(expected(dest("alpe"), 4, { nights: 4, flatTotal: 400 })), await js(`return $t("#ledger-total")`));
     check("the bill names the lodging being tried", (await js(`return document.getElementById("ledger-body").textContent`)).includes("Zona"), await js(`return document.getElementById("ledger-body").textContent`));
@@ -645,7 +670,7 @@ function startServer(db, net) {
     check("a lodging being tried follows the days", (await js(`return $t("#ledger-total")`)) === euro(expected(dest("alpe"), 4, { flatTotal: 300 })), await js(`return $t("#ledger-total")`));
     check("the flat field follows it, in cents", (await js(`return document.getElementById("flat").value`)) === "300");
     check("trying a lodging leaves the published figures alone", (await js(`return [...document.querySelectorAll(".sign-data")].map((e) => e.textContent).join()`)) === untouched);
-    check("trying a lodging leaves the comparison alone", (await js(`return [...document.querySelectorAll("#compare .choice")].map((l) => l.innerText).join()`)) === publishedCompare);
+    check("trying a lodging leaves the comparison alone", (await js(`return [...document.querySelectorAll("#compare .compare-row")].map((l) => l.innerText).join()`)) === publishedCompare);
     await js(`$set("flat", "111");`);
     check("typing a price overrides the lodging being tried", (await js(`return $t("#ledger-total")`)) === euro(expected(dest("alpe"), 4, { flatTotal: 111 })), await js(`return $t("#ledger-total")`));
     check("the bill says the price was typed", (await js(`return document.getElementById("ledger-body").textContent`)).includes("inserito a mano"));
@@ -665,7 +690,7 @@ function startServer(db, net) {
     await js(`document.getElementById("budget-reset").click(); document.querySelector("[data-delete]").click(); await $until(() => !document.querySelector("#quote-list li"));`);
 
     const compareNote = await js(`return $t("#compare-note")`);
-    check("the comparison states what it is based on", compareNote.includes("con 3 notti e 1 auto"), compareNote);
+    check("the comparison states what it is based on", compareNote.includes("Cifre di listino con 4 giorni, 3 notti e 3 persone"), compareNote);
 
     // Star, stand-in and removal: Bravo's lodging is cheapest per night, a dearer unstarred one is added too.
     const dearer = await rpc(db, "save_house", { p_code: CODES.charlie, p_house: { dest: "alpe", name: "Casa cara", nights: 3, total: 5000 } });
@@ -705,7 +730,7 @@ function startServer(db, net) {
     const serreRows = (await db.query("select * from houses where dest = 'serre'")).rows;
     await db.exec("delete from houses where dest = 'serre'");
     await go();
-    const partial = await js(`await $until(() => $t("#cost-objection").includes("manca")); const rows = [...document.querySelectorAll("#compare .choice")]; const row = rows[${TRIP.destinations.indexOf(dest("serre"))}];
+    const partial = await js(`await $until(() => $t("#cost-objection").includes("manca")); const rows = [...document.querySelectorAll("#compare .compare-row")]; const row = rows[${TRIP.destinations.indexOf(dest("serre"))}];
       $pick("dest", "serre"); await new Promise((r) => setTimeout(r, 50));
       return { number: row.querySelector("strong").textContent, label: row.querySelector("small").textContent,  objection: $t("#cost-objection"), live: $t("#live-total small"), total: $t("#ledger-total-label"), verdict: $t("#verdict"), empty: document.getElementById("house-empty").hidden ? "" : $t("#house-empty") }`);
     check("a destination with no lodging says so by name", partial.empty.includes("a Serre Chevalier"), partial);
@@ -817,11 +842,11 @@ function startServer(db, net) {
     const seatState = () => js(`return { free: [...document.querySelectorAll("button.seat.is-free")].length, mine: $t(".seat.is-mine strong"), text: [...document.querySelectorAll("#seats li")].map((l) => l.innerText.replace(/\\s+/g, " ")), ground: $t("#seat-ground"), hint: $t("#seat-hint"), status: $t("#seat-status"), focus: document.activeElement.dataset.seat }`);
     let seen = await seatState();
     check("the car starts empty, every seat named", seen.free === 4 && seen.text.join() === "Guida Libero,Passeggero Libero,Dietro sinistra Libero,Dietro destra Libero", seen);
-    check("who has no seat is named under the car", seen.ground.includes("Ancora a terra: Alfa, Charlie, Delta") && seen.ground.includes("Stavolta passa: Bravo"), seen);
+    check("who has no seat is named under the car", seen.ground.includes("Ancora a terra: 3 persone.") && !/Alfa|Charlie|Delta/.test(seen.ground) && seen.ground.includes("Stavolta passa: Bravo"), seen);
     await js(`document.querySelector('[data-seat="1"]').click(); await $until(() => $t("#seat-status").includes("preso"));`);
     seen = await seatState();
     check("a free seat can be taken, and everyone sees it", (await db.query("select 1 from seats where seat = 1 and person = 'delta'")).rows.length === 1 && seen.mine === "Delta (tu)", seen);
-    check("taking a seat keeps focus on it, and leaves the ground", seen.focus === "1" && !seen.ground.includes("Delta"), seen);
+    check("taking a seat keeps focus on it, and leaves the ground", seen.focus === "1" && seen.ground.includes("Ancora a terra: 2 persone."), seen);
     await js(`document.querySelector('[data-seat="3"]').click(); await $until(() => document.querySelector('[data-seat="3"].is-mine'));`);
     check("another free seat moves you there", (await db.query("select seat from seats where person = 'delta'")).rows.map((r) => r.seat).join() === "3");
     await rpc(db, "choose_seat", { p_code: CODES.charlie, p_seat: 1 });
@@ -922,7 +947,7 @@ function startServer(db, net) {
     // Navigation and the remaining sections
     console.error(`[${Math.round(process.uptime())}s] Navigation and the remaining sections: ${passed} ok, ${failures.length} failed`);
     await js(`document.querySelector('[data-budget="thorens"]').click(); await new Promise((r) => setTimeout(r, 200));`);
-    check("Fai il conto selects the destination", (await js(`return document.querySelector('input[name="dest"]:checked').value`)) === "thorens");
+    check("Fai il conto selects the destination", (await js(`return document.getElementById("conto").dataset.dest`)) === "thorens");
     const nav = (want) => `const t = performance.now(); const n = document.getElementById("bottom-nav"); while (n.classList.contains("is-on") !== ${want} && performance.now() - t < 4000) await new Promise((r) => setTimeout(r, 50)); return { on: n.classList.contains("is-on"), y: scrollY, ms: Math.round(performance.now() - t) };`;
     const onHero = await js(`scrollTo({ top: 0, behavior: "instant" }); ${nav(false)}`);
     check("bottom nav is hidden on the hero", !onHero.on, onHero);
@@ -1149,7 +1174,7 @@ function startServer(db, net) {
       await document.fonts.ready;
       const faces = [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, ""));
       return { title: $t("h1"), locked: document.documentElement.classList.contains("locked"), painted: c.dataset.painted, plate: plate.dataset.painted, synthetic: !!document.querySelector(".plate-note"), quotes: document.querySelectorAll("#quote-list li").length, note: $t("#quotes-note"), piste: $t("#piste-status"), font: faces.includes("Barlow") && faces.includes("Bowlby One") }`);
-    check("the page opens with no server", offline.title?.startsWith("Nuova squadra") && offline.painted === "true" && !offline.locked, offline);
+    check("the page opens with no server", offline.title?.startsWith("Pronti a rotolare") && offline.painted === "true" && !offline.locked, offline);
     check("real terrain offline", offline.plate === "true" && !offline.synthetic, offline);
     check("saved data offline, and it says so", offline.quotes === 1 && offline.note?.includes("Non riesco ad aggiornare"), offline);
     check("piste map offline", offline.piste?.includes("Alpe d'Huez"), offline);

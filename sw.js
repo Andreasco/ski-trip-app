@@ -1,5 +1,5 @@
 // Bump on every release so old caches are replaced.
-const VERSION = "discesa-v54";
+const VERSION = "discesa-v56";
 
 const SHELL = [
   "./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/og.jpg",
@@ -15,7 +15,8 @@ const OPTIONAL = Object.entries(DEM).flatMap(([id, [cx, cy]]) => [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then(async (cache) => {
-    await cache.addAll(SHELL);
+    // Past the browser's own cache: a page and its scripts must come from the same release.
+    await cache.addAll(SHELL.map((file) => new Request(file, { cache: "reload" })));
     await Promise.allSettled(OPTIONAL.map((file) => cache.add(file)));
     self.skipWaiting();
   }));
@@ -42,7 +43,8 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(caches.match(request).then((hit) => hit || fetch(request).then(save)));
     return;
   }
-  const network = fetch(request).then(save);
+  // GitHub Pages lets browsers keep files for ten minutes: always ask whether they changed.
+  const network = fetch(request, { cache: "no-cache" }).then(save);
   const timeout = new Promise((_, reject) => setTimeout(reject, 3000));
   event.respondWith(Promise.race([network, timeout]).catch(() => caches.match(request)
     .then((hit) => hit || (request.mode === "navigate" ? caches.match("index.html") : network))));
